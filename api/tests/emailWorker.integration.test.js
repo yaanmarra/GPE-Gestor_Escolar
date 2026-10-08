@@ -63,9 +63,28 @@ beforeAll(async () => {
     `SELECT COUNT(*) n FROM email_jobs WHERE status IN ('PENDING','RETRY','PROCESSING') AND tipo_notificacao <> ?`, [TIPO]);
   if (n > 0) throw new Error(`Há ${n} job(s) reais pendentes em email_jobs. Abortando para não processá-los com SMTP falso.`);
 
-  const [[a]] = await db.query(
+  let [[a]] = await db.query(
     'SELECT a.id AS aluno_id, p.usuario_id FROM alunos a JOIN pais p ON p.id = a.pai_id LIMIT 1');
-  assert.ok(a, 'precisa de pelo menos 1 aluno com responsável no banco');
+
+  if (!a) {
+    const [resPaiUser] = await db.query(
+      'INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)',
+      ['Responsavel Teste Worker', `resp_worker_${Date.now()}@teste.com`, 'hash_teste', 'pai']
+    );
+    const [resPai] = await db.query('INSERT INTO pais (usuario_id) VALUES (?)', [resPaiUser.insertId]);
+
+    const [resAlunoUser] = await db.query(
+      'INSERT INTO usuarios (nome, email, senha, tipo) VALUES (?, ?, ?, ?)',
+      ['Aluno Teste Worker', `aluno_worker_${Date.now()}@teste.com`, 'hash_teste', 'aluno']
+    );
+    const [resAluno] = await db.query(
+      'INSERT INTO alunos (usuario_id, pai_id) VALUES (?, ?)',
+      [resAlunoUser.insertId, resPai.insertId]
+    );
+
+    a = { aluno_id: resAluno.insertId, usuario_id: resPaiUser.insertId };
+  }
+
   alunoId = a.aluno_id;
   usuarioId = a.usuario_id;
 });

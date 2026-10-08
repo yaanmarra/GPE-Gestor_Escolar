@@ -69,6 +69,15 @@ jobs:
         working-directory: api
         run: npm ci
 
+      - name: Popular Banco com Dados Iniciais (Seed)
+        working-directory: api
+        env:
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_NAME: gpe
+        run: node src/scripts/seedDev.js
+
       - name: Executar Suíte Completa de Testes
         working-directory: api
         env:
