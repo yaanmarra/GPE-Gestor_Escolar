@@ -5,9 +5,11 @@ node_modules/
 .env
 .env.*
 
-# Allow example env file
+# Allow example env files
 !.env.example
 !**/.env.example
+!.env.exemplo
+!**/.env.exemplo
 
 # Logs
 *.log

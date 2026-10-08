@@ -1,0 +1,87 @@
+name: GPE CI - Testes & Qualidade
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  test-unit:
+    name: Testes Unitários (Node ${{ matrix.node-version }})
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [ 18.x, 20.x, 22.x ]
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js ${{ matrix.node-version }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Instalar Dependências da API
+        working-directory: api
+        run: npm ci
+
+      - name: Executar Testes Unitários (Email & Worker)
+        working-directory: api
+        env:
+          NODE_ENV: test
+        run: npx jest tests/emailUnit.test.js --runInBand
+
+  test-integration:
+    name: Testes de Integração & API (MySQL 8)
+    runs-on: ubuntu-latest
+
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ROOT_PASSWORD: root
+          MYSQL_DATABASE: gpe
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
+
+    steps:
+      - name: Checkout do Repositório
+        uses: actions/checkout@v4
+
+      - name: Configurar Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20.x
+          cache: 'npm'
+          cache-dependency-path: api/package-lock.json
+
+      - name: Aplicar Esquema do Banco de Dados
+        run: |
+          mysql -h 127.0.0.1 -P 3306 -u root -proot gpe < database/gpe.sql
+          mysql -h 127.0.0.1 -P 3306 -u root -proot gpe < database/migration_fase2_email_jobs.sql
+
+      - name: Instalar Dependências da API
+        working-directory: api
+        run: npm ci
+
+      - name: Executar Suíte Completa de Testes
+        working-directory: api
+        env:
+          NODE_ENV: test
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_PASSWORD: root
+          DB_NAME: gpe
+          PORT: 3000
+          JWT_SECRET: ci_jwt_secret_test_key_12345
+          JWT_EXPIRES_IN: 15m
+          REFRESH_SECRET: ci_refresh_secret_test_key_12345
+          REFRESH_EXPIRES_IN: 7d
+          EMAIL_REMETENTE: ci-test@escola.com
+          SENHA_APP: ci_fake_app_password
+        run: npm test
