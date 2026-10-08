@@ -1,0 +1,290 @@
+/* =============================================
+   GPE — Professor CSS (page-specific)
+   Design System: gpe-shared.css
+============================================= */
+
+/* ─── DASHBOARD ─── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 18px;
+}
+
+.turmas-lista { padding: 8px 0; }
+
+.turma-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 13px 20px;
+  border-bottom: 1px solid var(--gray-100);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.turma-item:last-child { border-bottom: none; }
+.turma-item:hover { background: var(--gray-50); }
+
+.turma-info { flex: 1; }
+.turma-nome { font-weight: 600; font-size: 0.9rem; color: var(--gray-800); }
+.turma-meta { font-size: 0.75rem; color: var(--gray-400); margin-top: 2px; }
+
+.turma-btn {
+  background: var(--blue-light);
+  color: var(--blue);
+  border: none;
+  padding: 6px 14px;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+.turma-btn:hover { background: var(--blue); color: #fff; }
+
+/* ─── CHAMADA CONFIG ─── */
+.config-row {
+  display: flex;
+  gap: 14px;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+
+/* ─── ATALHOS DE TECLADO ─── */
+.kbd-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  padding: 12px 18px;
+  background: var(--gray-800);
+  border-radius: var(--radius);
+  margin: 14px 0;
+  align-items: center;
+}
+.kbd-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.78rem;
+  color: rgba(255,255,255,0.65);
+}
+kbd {
+  background: rgba(255,255,255,0.12);
+  border: 1px solid rgba(255,255,255,0.2);
+  border-bottom-width: 2px;
+  border-radius: 5px;
+  padding: 3px 9px;
+  font-size: 0.75rem;
+  font-family: monospace;
+  color: #fff;
+  white-space: nowrap;
+}
+
+/* ─── PROGRESSO ─── */
+.chamada-progress {
+  margin: 0 0 14px;
+}
+.progress-info {
+  display: flex;
+  justify-content: space-between;
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--gray-600);
+  margin-bottom: 6px;
+}
+.progress-track {
+  height: 8px;
+  background: var(--gray-200);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--blue), #4db8ff);
+  border-radius: 999px;
+  transition: width 0.3s ease;
+}
+
+/* ─── LISTA DA CHAMADA ─── */
+.chamada-lista {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+
+/* Item de aluno na chamada */
+.chamada-item {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 13px 18px;
+  border-bottom: 1px solid var(--gray-100);
+  transition: background 0.15s;
+  position: relative;
+}
+.chamada-item:last-child { border-bottom: none; }
+
+/* Estado: pendente (não chamado ainda) */
+.chamada-item.pendente { background: #fff; }
+.chamada-item.pendente .aluno-nome { color: var(--gray-400); }
+.chamada-item.pendente .aluno-avatar { background: var(--gray-200); color: var(--gray-400); }
+
+/* Estado: ATUAL (sendo chamado agora) */
+.chamada-item.atual {
+  background: var(--blue-light);
+  border-left: 4px solid var(--blue);
+  padding-left: 14px;
+}
+.chamada-item.atual .aluno-nome { color: var(--blue-dark); font-weight: 700; }
+.chamada-item.atual .aluno-avatar { background: var(--blue); color: #fff; font-size: 1rem; }
+.chamada-item.atual .aluno-num { color: var(--blue); }
+
+/* Estados: presente / falta / justificado */
+.chamada-item.presente    { background: #f0fdf4; border-left: 4px solid var(--green); padding-left: 14px; }
+.chamada-item.falta       { background: #fef2f2; border-left: 4px solid var(--red);   padding-left: 14px; }
+.chamada-item.justificado { background: #fffbeb; border-left: 4px solid var(--yellow);padding-left: 14px; }
+
+.chamada-item.presente    .aluno-avatar { background: var(--green);  color: #fff; }
+.chamada-item.falta       .aluno-avatar { background: var(--red);    color: #fff; }
+.chamada-item.justificado .aluno-avatar { background: var(--yellow); color: #fff; }
+
+/* Avatar */
+.aluno-avatar {
+  width: 38px; height: 38px;
+  border-radius: 50%;
+  background: var(--gray-200);
+  color: var(--gray-600);
+  font-weight: 700;
+  font-size: 0.9rem;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+  transition: background 0.2s, color 0.2s;
+}
+
+/* Número do aluno */
+.aluno-num {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--gray-400);
+  width: 28px;
+  text-align: right;
+  flex-shrink: 0;
+}
+
+/* Nome */
+.aluno-nome {
+  flex: 1;
+  font-weight: 500;
+  font-size: 0.92rem;
+  color: var(--gray-800);
+  transition: color 0.15s;
+}
+
+/* Seta indicadora do item atual */
+.atual-indicator {
+  font-size: 1.1rem;
+  animation: pulse-arrow 1s ease-in-out infinite;
+}
+@keyframes pulse-arrow {
+  0%, 100% { opacity: 1; transform: translateX(0); }
+  50%       { opacity: 0.6; transform: translateX(3px); }
+}
+
+/* Badge de status no item */
+.status-badge {
+  padding: 4px 12px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.status-badge.presente    { background: var(--green-light);  color: var(--green); }
+.status-badge.falta       { background: var(--red-light);    color: var(--red); }
+.status-badge.justificado { background: var(--yellow-light); color: var(--yellow); }
+.status-badge.pendente    { background: var(--gray-100);     color: var(--gray-400); }
+.status-badge.atual       { background: var(--blue-light);   color: var(--blue); }
+
+/* Botões rápidos no item atual */
+.item-actions {
+  display: none;
+  gap: 6px;
+}
+.chamada-item.atual .item-actions { display: flex; }
+
+.act-btn {
+  border: none;
+  padding: 5px 12px;
+  border-radius: 6px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 0.74rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.act-p { background: var(--green-light); color: var(--green); }
+.act-p:hover { background: var(--green); color: #fff; }
+.act-f { background: var(--red-light); color: var(--red); }
+.act-f:hover { background: var(--red); color: #fff; }
+.act-j { background: var(--yellow-light); color: var(--yellow); }
+.act-j:hover { background: var(--yellow); color: #fff; }
+
+/* ─── RODAPÉ / RESUMO ─── */
+.chamada-footer {
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 18px 22px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.chamada-resumo {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.resumo-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.resumo-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.save-msg {
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+.save-msg.ok  { color: var(--green); }
+.save-msg.err { color: var(--red); }
+
+.btn-save { background: var(--green); }
+.btn-save:hover:not(:disabled) { background: #15803d !important; }
+
+/* ─── HISTÓRICO ─── */
+.mb-4 { margin-bottom: 16px; }
+
+/* ─── RESPONSIVE ─── */
+@media (max-width: 900px) {
+  .dash-grid { grid-template-columns: 1fr; }
+}
+@media (max-width: 600px) {
+  .config-row { flex-direction: column; }
+  .kbd-strip { display: none; }
+  .chamada-item { padding: 11px 14px; }
+  .item-actions { display: none !important; }
+}

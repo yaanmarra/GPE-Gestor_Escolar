@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>GPE — Login</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --blue:      #1a56db;
+      --blue-dark: #0f3a8a;
+      --green:     #16a34a;
+      --red:       #dc2626;
+      --gray-50:   #f8fafc;
+      --gray-200:  #e2e8f0;
+      --gray-400:  #94a3b8;
+      --gray-800:  #1e293b;
+    }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body { height: 100%; }
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: var(--gray-50);
+      color: var(--gray-800);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      overflow: auto;
+      position: relative;
+    }
+
+    /* Background ornamental */
+    .bg {
+      position: fixed;
+      inset: 0;
+      z-index: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+    .bg-gradient {
+      position: absolute;
+      inset: -20%;
+      background:
+        radial-gradient(60% 60% at 80% 10%, rgba(26,86,219,.2) 0%, transparent 60%),
+        radial-gradient(50% 50% at 10% 90%, rgba(15,58,138,.15) 0%, transparent 60%),
+        radial-gradient(30% 30% at 50% 20%, rgba(22,163,74,.1) 0%, transparent 60%);
+      filter: blur(40px);
+    }
+    .bg-dots {
+      position: absolute;
+      inset: 0;
+      background-image: radial-gradient(var(--gray-200) 1px, transparent 1px);
+      background-size: 20px 20px;
+      opacity: .5;
+    }
+
+    /* Card */
+    .card {
+      position: relative;
+      z-index: 1;
+      width: min(420px, 92vw);
+      background: #fff;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0,0,0,.12), 0 4px 16px rgba(0,0,0,.06);
+      padding: clamp(28px, 5vw, 44px);
+      margin: 24px auto;
+    }
+
+    /* Brand */
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 16px;
+      margin-bottom: 32px;
+    }
+    .logo-box {
+      width: 54px; height: 54px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 8px 24px rgba(26,86,219,.35);
+      flex-shrink: 0;
+    }
+    .logo-glyph {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.3rem;
+      color: #fff;
+      letter-spacing: 1px;
+    }
+    .brand-text h1 {
+      font-family: 'DM Serif Display', serif;
+      font-size: 1.35rem;
+      color: var(--gray-800);
+      line-height: 1.1;
+    }
+    .brand-text p {
+      font-size: .82rem;
+      color: var(--gray-400);
+      margin-top: 3px;
+    }
+
+    /* Form */
+    .form-group { margin-bottom: 18px; }
+    .form-group label {
+      display: block;
+      font-size: .78rem;
+      font-weight: 600;
+      color: var(--gray-400);
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      margin-bottom: 7px;
+    }
+    .input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      border: 1.5px solid var(--gray-200);
+      border-radius: 10px;
+      padding: 11px 14px;
+      background: #fff;
+      transition: border-color .2s, box-shadow .2s;
+    }
+    .input-wrap:focus-within {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 4px rgba(26,86,219,.1);
+    }
+    .input-icon { color: var(--gray-400); font-size: .9rem; flex-shrink: 0; }
+    .input-wrap input {
+      border: none;
+      outline: none;
+      width: 100%;
+      font-family: 'DM Sans', sans-serif;
+      font-size: .95rem;
+      color: var(--gray-800);
+      background: transparent;
+    }
+    .toggle-btn {
+      border: none;
+      background: none;
+      cursor: pointer;
+      font-size: 1rem;
+      opacity: .5;
+      transition: opacity .2s;
+      padding: 0;
+      line-height: 1;
+    }
+    .toggle-btn:hover { opacity: 1; }
+    .hint {
+      font-size: .77rem;
+      color: var(--gray-400);
+      margin-top: 5px;
+    }
+
+    /* Submit */
+    .btn-submit {
+      width: 100%;
+      padding: 13px;
+      border: none;
+      border-radius: 10px;
+      background: linear-gradient(135deg, var(--blue), var(--blue-dark));
+      color: #fff;
+      font-family: 'DM Sans', sans-serif;
+      font-size: 1rem;
+      font-weight: 700;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      margin-top: 8px;
+      transition: filter .2s, transform .1s;
+      box-shadow: 0 4px 14px rgba(26,86,219,.35);
+    }
+    .btn-submit:hover   { filter: brightness(1.06); }
+    .btn-submit:active  { transform: translateY(1px); }
+    .btn-submit:disabled{ opacity: .65; cursor: not-allowed; }
+
+    /* Spinner */
+    .spinner {
+      width: 16px; height: 16px;
+      border-radius: 50%;
+      border: 2px solid rgba(255,255,255,.35);
+      border-top-color: #fff;
+      animation: spin .8s linear infinite;
+      display: none;
+    }
+    .loading .spinner    { display: inline-block; }
+    .loading .btn-text   { display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    /* Message */
+    .msg {
+      text-align: center;
+      min-height: 20px;
+      font-size: .88rem;
+      font-weight: 600;
+      margin-top: 12px;
+    }
+    .msg.ok  { color: var(--green); }
+    .msg.err { color: var(--red); }
+
+    /* Footer */
+    .foot {
+      text-align: center;
+      margin-top: 24px;
+      color: var(--gray-400);
+      font-size: .78rem;
+    }
+    .foot a { color: var(--blue); text-decoration: none; font-weight: 600; }
+  </style>
+</head>
+<body>
+
+  <div class="bg">
+    <div class="bg-gradient"></div>
+    <div class="bg-dots"></div>
+  </div>
+
+  <div class="card">
+    <div class="brand">
+      <div class="logo-box">
+        <span class="logo-glyph">GPE</span>
+      </div>
+      <div class="brand-text">
+        <h1>Gestor de Presenças</h1>
+        <p>Sistema Escolar — UniEvangélica</p>
+      </div>
+    </div>
+
+    <form id="loginForm" novalidate>
+      <div class="form-group">
+        <label for="email">E-mail</label>
+        <div class="input-wrap">
+          <span class="input-icon">✉</span>
+          <input type="email" id="email" name="email" placeholder="seu@email.com" required autocomplete="email" />
+        </div>
+        <p class="hint">Use o e-mail cadastrado pelo gestor.</p>
+      </div>
+
+      <div class="form-group">
+        <label for="senha">Senha</label>
+        <div class="input-wrap">
+          <span class="input-icon">🔒</span>
+          <input type="password" id="senha" name="senha" placeholder="••••••••" required autocomplete="current-password" />
+          <button type="button" id="toggleSenha" class="toggle-btn" aria-label="Mostrar/ocultar senha">👁️</button>
+        </div>
+      </div>
+
+      <button type="submit" class="btn-submit" id="btnEntrar">
+        <span class="btn-text">Entrar</span>
+        <span class="spinner"></span>
+      </button>
+
+      <p id="msg" class="msg" role="alert" aria-live="polite"></p>
+    </form>
+
+    <div class="foot">
+      <p>© 2025 · GPE — Sistema de Gestão de Presença Escolar</p>
+    </div>
+  </div>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/login.js"></script>
+</body>
+</html>
+

@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPE — Painel da Família</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/gpe-shared.css" />
+  <link rel="stylesheet" href="css/pais.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">👨‍👩‍👧</div>
+      <div class="logo-text">
+        <span class="logo-title">GPE</span>
+        <span class="logo-sub">Família</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-section="resumo">
+        <span class="nav-icon">📊</span><span class="nav-label">Resumo</span>
+      </button>
+      <button class="nav-item" data-section="historico">
+        <span class="nav-icon">📅</span><span class="nav-label">Histórico</span>
+      </button>
+      <button class="nav-item" data-section="notificacoes">
+        <span class="nav-icon">🔔</span><span class="nav-label">Notificações</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">P</div>
+        <div class="user-details">
+          <span class="user-name" id="sidebarNome">Responsável</span>
+          <span class="user-role">Responsável</span>
+        </div>
+      </div>
+      <button class="btn-sair" id="btnSair" title="Sair">⏻</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <div class="breadcrumb" id="breadcrumb">Resumo</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-date" id="topbarDate"></span>
+      </div>
+    </header>
+
+    <!-- ======== RESUMO ======== -->
+    <section class="section active" id="section-resumo">
+      <div class="section-header">
+        <h1 class="section-title">Olá, <span class="title-accent" id="nomePai">Responsável</span>! 👋</h1>
+        <p class="section-sub">Acompanhe a frequência dos seus filhos</p>
+      </div>
+
+      <!-- Alertas críticos -->
+      <div id="alertas-container"></div>
+
+      <!-- Cards de stats -->
+      <div class="stats-grid" id="stats-grid">
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-pres">—</span>
+            <span class="stat-label">Presenças</span>
+          </div>
+          <div class="stat-bg-icon">✅</div>
+        </div>
+        <div class="stat-card stat-red">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-falt">—</span>
+            <span class="stat-label">Faltas</span>
+          </div>
+          <div class="stat-bg-icon">❌</div>
+        </div>
+        <div class="stat-card stat-yellow">
+          <div class="stat-icon">📝</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-just">—</span>
+            <span class="stat-label">Justificadas</span>
+          </div>
+          <div class="stat-bg-icon">📝</div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">📈</div>
+          <div class="stat-info">
+            <span class="stat-value" id="stat-pct">—%</span>
+            <span class="stat-label">Frequência</span>
+          </div>
+          <div class="stat-bg-icon">📈</div>
+        </div>
+      </div>
+
+      <!-- Gráficos -->
+      <div class="charts-row">
+        <div class="card" style="flex:1;min-width:250px;">
+          <div class="card-header">
+            <span class="card-title">Distribuição</span>
+            <span class="card-badge">Total</span>
+          </div>
+          <div class="chart-body" style="height:220px;display:flex;align-items:center;justify-content:center;">
+            <canvas id="chartDonut"></canvas>
+          </div>
+          <div class="donut-legend" id="donut-legend"></div>
+        </div>
+        <div class="card" style="flex:2;min-width:300px;">
+          <div class="card-header">
+            <span class="card-title">Evolução Mensal</span>
+            <span class="card-badge">Últimos 6 meses</span>
+          </div>
+          <div class="chart-body" style="height:220px;">
+            <canvas id="chartLinha"></canvas>
+          </div>
+        </div>
+      </div>
+
+      <!-- Barra de frequência visual -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <span class="card-title">Status de Frequência</span>
+          <span id="freq-status-badge" class="card-badge">—</span>
+        </div>
+        <div class="card-body">
+          <div class="freq-visual">
+            <div class="freq-bar-big">
+              <div class="freq-fill-big" id="freq-fill-big" style="width:0%"></div>
+            </div>
+            <span class="freq-pct-big" id="freq-pct-big">0%</span>
+          </div>
+          <p class="freq-obs" id="freq-obs">Carregando...</p>
+        </div>
+      </div>
+
+      <!-- Últimas faltas -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <span class="card-title">Últimas Faltas</span>
+          <span class="card-badge" id="ultimas-badge">—</span>
+        </div>
+        <div id="ultimas-faltas">
+          <div class="empty-state"><span class="empty-icon">⏳</span><p>Carregando...</p></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== HISTÓRICO ======== -->
+    <section class="section" id="section-historico">
+      <div class="section-header">
+        <h1 class="section-title">Histórico <span class="title-accent">Completo</span></h1>
+        <p class="section-sub">Todos os registros de frequência</p>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <div style="display:flex;gap:12px;flex-wrap:wrap;align-items:flex-end;">
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>De</label>
+              <input type="date" id="hist-ini" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>Até</label>
+              <input type="date" id="hist-fim" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>Status</label>
+              <select id="hist-status">
+                <option value="">Todos</option>
+                <option value="presente">Presentes</option>
+                <option value="falta">Faltas</option>
+                <option value="justificado">Justificadas</option>
+              </select>
+            </div>
+            <button class="btn-primary" id="btn-filtrar">🔍 Filtrar</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <span class="table-meta" id="hist-meta">—</span>
+          <div style="display:flex;gap:8px;">
+            <span class="badge badge-presente" id="cnt-p">0 Pres.</span>
+            <span class="badge badge-falta" id="cnt-f">0 Faltas</span>
+            <span class="badge badge-justificado" id="cnt-j">0 Just.</span>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Data</th>
+                <th>Dia</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="hist-tbody">
+              <tr><td colspan="4" class="loading-cell">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== NOTIFICAÇÕES ======== -->
+    <section class="section" id="section-notificacoes">
+      <div class="section-header">
+        <h1 class="section-title"><span class="title-accent">Notificações</span></h1>
+        <p class="section-sub">Avisos e comunicados sobre a frequência</p>
+      </div>
+      <div id="notif-lista">
+        <div class="empty-state"><span class="empty-icon">⏳</span><p>Carregando notificações...</p></div>
+      </div>
+    </section>
+
+  </main>
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/pais.js"></script>
+</body>
+</html>
+

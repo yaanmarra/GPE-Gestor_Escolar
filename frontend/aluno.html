@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPE — Painel do Aluno</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/gpe-shared.css" />
+  <link rel="stylesheet" href="css/aluno.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">🎓</div>
+      <div class="logo-text">
+        <span class="logo-title">GPE</span>
+        <span class="logo-sub">Aluno</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-section="dashboard">
+        <span class="nav-icon">📊</span><span class="nav-label">Meu Painel</span>
+      </button>
+      <button class="nav-item" data-section="historico">
+        <span class="nav-icon">📅</span><span class="nav-label">Histórico</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">A</div>
+        <div class="user-details">
+          <span class="user-name" id="sidebarNome">Aluno</span>
+          <span class="user-role" id="sidebarTurma">—</span>
+        </div>
+      </div>
+      <button class="btn-sair" id="btnSair" title="Sair">⏻</button>
+    </div>
+  </aside>
+
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <div class="breadcrumb" id="breadcrumb">Meu Painel</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-date" id="topbarDate"></span>
+      </div>
+    </header>
+
+    <!-- ======== DASHBOARD ======== -->
+    <section class="section active" id="section-dashboard">
+      <div class="section-header">
+        <h1 class="section-title">Olá, <span class="title-accent" id="nomeAluno">Aluno</span>! 📚</h1>
+        <p class="section-sub">Veja como está sua frequência</p>
+      </div>
+
+      <!-- Alerta de risco -->
+      <div id="alerta-aluno"></div>
+
+      <div class="stats-grid">
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="s-pres">—</span>
+            <span class="stat-label">Presenças</span>
+          </div>
+          <div class="stat-bg-icon">✅</div>
+        </div>
+        <div class="stat-card stat-red">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <span class="stat-value" id="s-falt">—</span>
+            <span class="stat-label">Faltas</span>
+          </div>
+          <div class="stat-bg-icon">❌</div>
+        </div>
+        <div class="stat-card stat-yellow">
+          <div class="stat-icon">📝</div>
+          <div class="stat-info">
+            <span class="stat-value" id="s-just">—</span>
+            <span class="stat-label">Justificadas</span>
+          </div>
+          <div class="stat-bg-icon">📝</div>
+        </div>
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">📈</div>
+          <div class="stat-info">
+            <span class="stat-value" id="s-pct">—%</span>
+            <span class="stat-label">Frequência</span>
+          </div>
+          <div class="stat-bg-icon">📈</div>
+        </div>
+      </div>
+
+      <!-- Barra de frequência + metas -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <span class="card-title">Minha Frequência</span>
+          <span class="card-badge" id="freq-badge">—</span>
+        </div>
+        <div class="card-body">
+          <div class="freq-visual-aluno">
+            <div class="freq-track-aluno">
+              <div class="freq-fill-aluno" id="freq-fill-a" style="width:0%"></div>
+              <div class="freq-meta-line" style="left:75%" title="Mínimo 75%">
+                <div class="freq-meta-bar"></div>
+                <span class="freq-meta-label">75%</span>
+              </div>
+            </div>
+            <span class="freq-pct-aluno" id="freq-pct-a">0%</span>
+          </div>
+          <p class="freq-dica" id="freq-dica"></p>
+        </div>
+      </div>
+
+      <!-- Gráfico mensal -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <span class="card-title">Presença por Mês</span>
+          <span class="card-badge">Últimos 6 meses</span>
+        </div>
+        <div class="chart-body" style="height:220px;">
+          <canvas id="chartMensal"></canvas>
+        </div>
+      </div>
+
+      <!-- Últimas aulas -->
+      <div class="card mt-4">
+        <div class="card-header">
+          <span class="card-title">Últimas Aulas</span>
+          <span class="card-badge" id="ult-badge">—</span>
+        </div>
+        <div id="ultimas-aulas"></div>
+      </div>
+    </section>
+
+    <!-- ======== HISTÓRICO ======== -->
+    <section class="section" id="section-historico">
+      <div class="section-header">
+        <h1 class="section-title">Histórico <span class="title-accent">Completo</span></h1>
+        <p class="section-sub">Todos os seus registros de frequência</p>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <input type="text" class="search-input" id="hist-busca" placeholder="🔍 Filtrar por data..." />
+          <div style="display:flex;gap:6px;">
+            <button class="filter-btn active" data-f="todos">Todos</button>
+            <button class="filter-btn" data-f="presente">Presentes</button>
+            <button class="filter-btn" data-f="falta">Faltas</button>
+            <button class="filter-btn" data-f="justificado">Just.</button>
+          </div>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr><th>Data</th><th>Dia</th><th>Professor</th><th>Status</th></tr>
+            </thead>
+            <tbody id="hist-tbody">
+              <tr><td colspan="4" class="loading-cell">Carregando...</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/aluno.js"></script>
+</body>
+</html>
+

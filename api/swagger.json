@@ -1,0 +1,673 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "API GPE",
+    "version": "1.0.0",
+    "description": "Documentação da API do sistema GPE desenvolvida em Node.js com Express e MySQL."
+  },
+  "servers": [
+    {
+      "url": "http://localhost:3000",
+      "description": "Servidor local"
+    }
+  ],
+  "components": {
+    "securitySchemes": {
+      "bearerAuth": {
+        "type": "http",
+        "scheme": "bearer",
+        "bearerFormat": "JWT"
+      }
+    }
+  },
+  "security": [
+    {
+      "bearerAuth": []
+    }
+  ],
+  "tags": [
+    {
+      "name": "Sistema",
+      "description": "Rotas de teste e verificação do servidor e banco."
+    },
+    {
+      "name": "Autenticação",
+      "description": "Rotas de login e cadastro de usuários."
+    },
+    {
+      "name": "Gestores",
+      "description": "Rotas de gestão de turmas, usuários e relatórios."
+    },
+    {
+      "name": "Alunos",
+      "description": "Rotas relacionadas aos alunos."
+    },
+    {
+      "name": "Pais",
+      "description": "Rotas relacionadas aos responsáveis."
+    },
+    {
+      "name": "Professores",
+      "description": "Rotas relacionadas aos professores e ao controle de presença."
+    }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Sistema"],
+        "summary": "Teste do servidor",
+        "responses": {
+          "200": {
+            "description": "Servidor rodando com sucesso"
+          }
+        }
+      }
+    },
+    "/api/teste-banco": {
+      "get": {
+        "tags": ["Sistema"],
+        "summary": "Testa conexão com o banco",
+        "responses": {
+          "200": {
+            "description": "Banco conectado com sucesso"
+          },
+          "500": {
+            "description": "Erro ao acessar o banco"
+          }
+        }
+      }
+    },
+    "/api/login": {
+      "post": {
+        "tags": ["Autenticação"],
+        "security": [],
+        "summary": "Realiza login do usuário",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "email": {
+                    "type": "string",
+                    "example": "usuario@email.com"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "example": "123456"
+                  }
+                },
+                "required": ["email", "senha"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Login realizado com sucesso"
+          },
+          "400": {
+            "description": "Campos obrigatórios não preenchidos"
+          },
+          "401": {
+            "description": "E-mail ou senha incorretos"
+          },
+          "500": {
+            "description": "Erro no servidor"
+          }
+        }
+      }
+    },
+    "/api/cadastro": {
+      "post": {
+        "tags": ["Autenticação","Gestores"],
+        "summary": "Cadastra um novo usuário",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "João Silva"
+                  },
+                  "email": {
+                    "type": "string",
+                    "example": "joao@email.com"
+                  },
+                  "senha": {
+                    "type": "string",
+                    "example": "123456"
+                  },
+                  "tipo": {
+                    "type": "string",
+                    "enum": ["aluno", "pai", "professor", "gestor"],
+                    "example": "aluno"
+                  },
+                  "telefone": {
+                    "type": "string",
+                    "example": "(11) 99999-9999"
+                  },
+                  "disciplina": {
+                    "type": "string",
+                    "example": "Matemática"
+                  },
+                  "turma_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "pai_id": {
+                    "type": "integer",
+                    "example": 2
+                  }
+                },
+                "required": ["nome", "email", "senha", "tipo"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Cadastro realizado com sucesso"
+          },
+          "400": {
+            "description": "Erro de validação"
+          },
+          "500": {
+            "description": "Erro interno"
+          }
+        }
+      }
+    },
+    "/api/turmas": {
+      "get": {
+        "tags": ["Gestores"],
+        "summary": "Lista todas as turmas",
+        "responses": {
+          "200": {
+            "description": "Lista de turmas retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao listar turmas"
+          }
+        }
+      },
+      "post": {
+        "tags": ["Gestores"],
+        "summary": "Cria uma nova turma",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "1º Ano A"
+                  },
+                  "ano": {
+                    "type": "integer",
+                    "example": 2026
+                  },
+                  "turno": {
+                    "type": "string",
+                    "example": "matutino"
+                  }
+                },
+                "required": ["nome", "ano"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "Turma criada com sucesso"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "500": {
+            "description": "Erro ao criar turma"
+          }
+        }
+      }
+    },
+    "/api/turmas/{id}": {
+      "get": {
+        "tags": ["Gestores"],
+        "summary": "Busca uma turma por ID",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Turma encontrada"
+          },
+          "404": {
+            "description": "Turma não encontrada"
+          },
+          "500": {
+            "description": "Erro ao buscar turma"
+          }
+        }
+      },
+      "put": {
+        "tags": ["Gestores"],
+        "summary": "Atualiza uma turma",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "nome": {
+                    "type": "string",
+                    "example": "2º Ano B"
+                  },
+                  "ano": {
+                    "type": "integer",
+                    "example": 2026
+                  },
+                  "turno": {
+                    "type": "string",
+                    "example": "vespertino"
+                  },
+                  "ativa": {
+                    "type": "integer",
+                    "example": 1
+                  }
+                },
+                "required": ["nome", "ano"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Turma atualizada com sucesso"
+          },
+          "404": {
+            "description": "Turma não encontrada"
+          },
+          "500": {
+            "description": "Erro ao atualizar turma"
+          }
+        }
+      },
+      "delete": {
+        "tags": ["Gestores"],
+        "summary": "Exclui uma turma",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Turma excluída com sucesso"
+          },
+          "404": {
+            "description": "Turma não encontrada"
+          },
+          "500": {
+            "description": "Erro ao excluir turma"
+          }
+        }
+      }
+    },
+    "/api/turmas/{id}/alunos": {
+      "get": {
+        "tags": ["Gestores"],
+        "summary": "Lista os alunos de uma turma",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Lista de alunos da turma retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao buscar alunos da turma"
+          }
+        }
+      }
+    },
+    "/api/turmas/{id}/professores": {
+      "post": {
+        "tags": ["Gestores"],
+        "summary": "Vincula um professor a uma turma",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "professor_id": {
+                    "type": "integer",
+                    "example": 3
+                  }
+                },
+                "required": ["professor_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Professor vinculado com sucesso"
+          },
+          "400": {
+            "description": "Dados inválidos"
+          },
+          "500": {
+            "description": "Erro ao vincular professor"
+          }
+        }
+      }
+    },
+    "/api/turmas/{id}/professores/{professor_id}": {
+      "delete": {
+        "tags": ["Gestores"],
+        "summary": "Remove o vínculo de um professor com uma turma",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          },
+          {
+            "name": "professor_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Professor removido da turma com sucesso"
+          },
+          "404": {
+            "description": "Vínculo não encontrado"
+          },
+          "500": {
+            "description": "Erro ao remover professor da turma"
+          }
+        }
+      }
+    },
+    "/api/alunos": {
+      "get": {
+        "tags": ["Alunos"],
+        "summary": "Lista todos os alunos",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao listar alunos"
+          }
+        }
+      }
+    },
+    "/api/alunos/{id}/turma": {
+      "patch": {
+        "tags": ["Alunos"],
+        "summary": "Atualiza a turma de um aluno",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "turma_id": {
+                    "type": "integer",
+                    "example": 2
+                  }
+                },
+                "required": ["turma_id"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Turma do aluno atualizada com sucesso"
+          },
+          "404": {
+            "description": "Aluno não encontrado"
+          },
+          "500": {
+            "description": "Erro ao atualizar turma do aluno"
+          }
+        }
+      }
+    },
+    "/api/pais": {
+      "get": {
+        "tags": ["Pais"],
+        "summary": "Lista todos os pais",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao listar pais"
+          }
+        }
+      }
+    },
+    "/api/professores": {
+      "get": {
+        "tags": ["Professores","Gestores"],
+        "summary": "Lista todos os professores",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao listar professores"
+          }
+        }
+      }
+    },
+    "/api/usuarios": {
+      "get": {
+        "tags": ["Gestores"],
+        "summary": "Lista todos os usuários",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao listar usuários"
+          }
+        }
+      }
+    },
+    "/api/registrar-presenca": {
+      "post": {
+        "tags": ["Professores"],
+        "summary": "Registra presença de um aluno",
+        "description": "Se o status for falta, o sistema também registra uma notificação e tenta enviar e-mail ao responsável.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "aluno_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "professor_id": {
+                    "type": "integer",
+                    "example": 1
+                  },
+                  "data": {
+                    "type": "string",
+                    "example": "2026-04-10"
+                  },
+                  "status": {
+                    "type": "string",
+                    "enum": ["presente", "falta", "justificado"],
+                    "example": "presente"
+                  }
+                },
+                "required": ["aluno_id", "professor_id", "data", "status"]
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Presença registrada com sucesso"
+          },
+          "400": {
+            "description": "Campos obrigatórios ausentes"
+          },
+          "500": {
+            "description": "Erro ao registrar presença"
+          }
+        }
+      }
+    },
+    "/api/presencas": {
+      "get": {
+        "tags": ["Professores","Gestores"],
+        "summary": "Lista todas as presenças",
+        "responses": {
+          "200": {
+            "description": "Lista retornada com sucesso"
+          },
+          "500": {
+            "description": "Erro ao buscar presenças"
+          }
+        }
+      }
+    },
+    "/api/presencas/{usuario_id}": {
+      "get": {
+        "tags": ["Professores"],
+        "summary": "Busca as presenças de um aluno pelo usuario_id",
+        "parameters": [
+          {
+            "name": "usuario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presenças retornadas com sucesso"
+          },
+          "500": {
+            "description": "Erro ao buscar presenças"
+          }
+        }
+      }
+    },
+    "/api/presencas-filho/{usuario_id}": {
+      "get": {
+        "tags": ["Professores","Gestores"],
+        "summary": "Busca as presenças do filho vinculado ao responsável",
+        "parameters": [
+          {
+            "name": "usuario_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Presenças do filho retornadas com sucesso"
+          },
+          "500": {
+            "description": "Erro ao buscar presenças do filho"
+          }
+        }
+      }
+    },
+    "/api/relatorio-frequencia": {
+      "get": {
+        "tags": ["Gestores"],
+        "summary": "Gera relatório de frequência",
+        "responses": {
+          "200": {
+            "description": "Relatório gerado com sucesso"
+          },
+          "500": {
+            "description": "Erro ao gerar relatório"
+          }
+        }
+      }
+    }
+  }
+}

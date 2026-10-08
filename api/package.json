@@ -1,0 +1,42 @@
+{
+  "name": "api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node src/scripts/seedDev.js",
+    "usuarios": "node src/scripts/listarUsuarios.js",
+    "migrar:senhas": "node src/scripts/migrarSenhas.js",
+    "worker": "node src/workers/emailWorker.js",
+    "test:email": "cross-env NODE_ENV=test jest tests/emailUnit.test.js tests/emailWorker.integration.test.js",
+    "test": "cross-env NODE_ENV=test jest --runInBand --detectOpenHandles --forceExit"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "bcryptjs": "^3.0.3",
+    "body-parser": "^2.3.0",
+    "cookie-parser": "^1.4.7",
+    "cors": "^2.8.5",
+    "dotenv": "^17.3.1",
+    "express": "^5.2.1",
+    "express-rate-limit": "^8.7.1",
+    "jsonwebtoken": "^9.0.3",
+    "mysql2": "^3.24.5",
+    "node-fetch": "^3.3.2",
+    "nodemailer": "^10.0.16",
+    "pino": "^10.4.0",
+    "pino-http": "^11.0.0",
+    "pino-pretty": "^13.2.0",
+    "swagger-ui-express": "^5.0.1"
+  },
+  "devDependencies": {
+    "cross-env": "^10.1.0",
+    "jest": "^30.5.2",
+    "supertest": "^7.3.1"
+  }
+}

@@ -1,0 +1,127 @@
+:root{
+  --azul:#0066cc;
+  --azul-escuro:#004a99;
+  --verde:#2ecc71;
+  --vermelho:#e74c3c;
+  --card:#ffffff;
+  --texto:#1f2937;
+  --borda:#e5e7eb;
+  --cinza:#6b7280;
+  --radius:14px;
+  --shadow:0 20px 50px rgba(0,0,0,.12);
+}
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  font-family:"Poppins",system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;
+  color:var(--texto);
+  background:#f3f6fb;
+  overflow:auto;
+}
+
+/* background ornamental */
+.bg{position:fixed; inset:0; z-index:-2; overflow:hidden;}
+.gradient{
+  position:absolute; inset:-20%;
+  background: radial-gradient(60% 60% at 80% 10%, rgba(0,102,204,.25), transparent 60%),
+              radial-gradient(50% 50% at 10% 90%, rgba(0,74,153,.18), transparent 60%),
+              radial-gradient(30% 30% at 50% 20%, rgba(46,204,113,.12), transparent 60%);
+  filter: blur(30px);
+}
+.dots{
+  position:absolute; inset:0;
+  background-image: radial-gradient(#dbeafe 1px, transparent 1px);
+  background-size: 18px 18px;
+  opacity:.4;
+}
+
+/* card */
+.card{
+  width:min(960px,92vw);
+  background:var(--card);
+  margin: min(7vh,64px) auto;
+  border-radius:var(--radius);
+  box-shadow:var(--shadow);
+  padding: clamp(20px, 4vw, 36px);
+}
+
+.brand{
+  display:flex; align-items:center; gap:18px; margin-bottom:18px;
+}
+.logo{
+  width:56px; height:56px; border-radius:14px;
+  background: linear-gradient(135deg, var(--azul), var(--azul-escuro));
+  color:#fff; display:grid; place-items:center; font-weight:800; font-size:1.2rem;
+  box-shadow: 0 10px 24px rgba(0,102,204,.35);
+}
+.title h1{margin:0; font-size: clamp(1.15rem, 2.2vw, 1.5rem);}
+.subtitle{margin:2px 0 0; color:var(--cinza); font-size:.95rem}
+
+/* form */
+form{margin-top:6px}
+.input-group{margin:16px 0}
+.input-group label{font-weight:600; display:block; margin-bottom:6px}
+.hint{color:#9aa3af; font-size:.85rem; margin-top:6px}
+
+.input{
+  display:flex; align-items:center; gap:10px;
+  border:1px solid var(--borda); border-radius:12px;
+  padding:10px 12px; background:#fff;
+  transition: border-color .2s, box-shadow .2s;
+}
+.input:focus-within{border-color:var(--azul); box-shadow:0 0 0 4px rgba(0,102,204,.12);}
+.input .icon{color:#94a3b8; font-weight:700; width:18px; text-align:center}
+.input input{
+  border:none; outline:none; width:100%;
+  font-size:1rem; background:transparent; color:var(--texto);
+}
+.toggle{
+  border:none; background:transparent; cursor:pointer; font-size:1rem; opacity:.65;
+}
+.toggle:hover{opacity:1}
+
+/* button */
+.btn-primary{
+  width:100%;
+  display:inline-flex; align-items:center; justify-content:center;
+  gap:10px; border:none; cursor:pointer;
+  background:linear-gradient(90deg, var(--azul), var(--azul-escuro));
+  color:#fff; padding:12px 16px; border-radius:12px;
+  font-weight:700; letter-spacing:.2px; margin-top:12px;
+  transition: transform .06s ease, filter .2s ease;
+}
+.btn-primary:hover{filter:brightness(1.05)}
+.btn-primary:active{transform:translateY(1px)}
+.spinner{
+  width:16px; height:16px; border-radius:50%;
+  border:2px solid rgba(255,255,255,.35); border-top-color:#fff;
+  animation:spin .9s linear infinite; display:none;
+}
+.loading .spinner{display:inline-block}
+.loading .btn-text{opacity:.0; width:0}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.msg{
+  text-align:center; margin-top:12px; min-height:22px;
+  font-weight:600; font-size:.95rem;
+}
+.msg.ok{color:var(--verde)}
+.msg.err{color:var(--vermelho)}
+
+.extra{
+  margin-top:8px; display:flex; justify-content:center;
+}
+.muted{color:#9aa3af; font-size:.9rem}
+
+/* rodapé */
+.foot{
+  margin-top:18px; color:#9aa3af; font-size:.9rem; text-align:center;
+}
+
+/* responsivo */
+@media (max-width: 680px){
+  .brand{flex-direction:row}
+  .card{padding:22px}
+}

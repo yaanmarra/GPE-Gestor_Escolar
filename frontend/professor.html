@@ -1,0 +1,254 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GPE — Professor</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&family=DM+Serif+Display&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/gpe-shared.css" />
+  <link rel="stylesheet" href="css/professor.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+</head>
+<body>
+
+  <!-- ===== SIDEBAR ===== -->
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-logo">
+      <div class="logo-icon">📚</div>
+      <div class="logo-text">
+        <span class="logo-title">GPE</span>
+        <span class="logo-sub">Professor</span>
+      </div>
+    </div>
+    <nav class="sidebar-nav">
+      <button class="nav-item active" data-section="dashboard">
+        <span class="nav-icon">📊</span><span class="nav-label">Dashboard</span>
+      </button>
+      <button class="nav-item" data-section="chamada">
+        <span class="nav-icon">📋</span><span class="nav-label">Fazer Chamada</span>
+      </button>
+      <button class="nav-item" data-section="historico">
+        <span class="nav-icon">🕐</span><span class="nav-label">Histórico</span>
+      </button>
+    </nav>
+    <div class="sidebar-footer">
+      <div class="user-info">
+        <div class="user-avatar" id="sidebarAvatar">P</div>
+        <div class="user-details">
+          <span class="user-name" id="sidebarNome">Professor</span>
+          <span class="user-role">Professor</span>
+        </div>
+      </div>
+      <button class="btn-sair" id="btnSair" title="Sair">⏻</button>
+    </div>
+  </aside>
+
+  <!-- ===== MAIN ===== -->
+  <main class="main-content">
+    <header class="topbar">
+      <div class="topbar-left">
+        <button class="menu-toggle" id="menuToggle">☰</button>
+        <div class="breadcrumb" id="breadcrumb">Dashboard</div>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-date" id="topbarDate"></span>
+      </div>
+    </header>
+
+    <!-- ======== DASHBOARD ======== -->
+    <section class="section active" id="section-dashboard">
+      <div class="section-header">
+        <h1 class="section-title">Olá, <span class="title-accent" id="nomeProf">Professor</span>! 👋</h1>
+        <p class="section-sub">Aqui está o resumo de hoje</p>
+      </div>
+
+      <div class="stats-grid" id="dash-stats">
+        <div class="stat-card stat-blue">
+          <div class="stat-icon">🏫</div>
+          <div class="stat-info">
+            <span class="stat-value" id="dash-turmas">—</span>
+            <span class="stat-label">Minhas Turmas</span>
+          </div>
+          <div class="stat-bg-icon">🏫</div>
+        </div>
+        <div class="stat-card stat-green">
+          <div class="stat-icon">✅</div>
+          <div class="stat-info">
+            <span class="stat-value" id="dash-presencas">—</span>
+            <span class="stat-label">Presenças Hoje</span>
+          </div>
+          <div class="stat-bg-icon">✅</div>
+        </div>
+        <div class="stat-card stat-red">
+          <div class="stat-icon">❌</div>
+          <div class="stat-info">
+            <span class="stat-value" id="dash-faltas">—</span>
+            <span class="stat-label">Faltas Hoje</span>
+          </div>
+          <div class="stat-bg-icon">❌</div>
+        </div>
+        <div class="stat-card stat-yellow">
+          <div class="stat-icon">⚠️</div>
+          <div class="stat-info">
+            <span class="stat-value" id="dash-risco">—</span>
+            <span class="stat-label">Alunos em Risco</span>
+          </div>
+          <div class="stat-bg-icon">⚠️</div>
+        </div>
+      </div>
+
+      <div class="dash-grid">
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Minhas Turmas</span>
+            <span class="card-badge">Ativas</span>
+          </div>
+          <div id="turmas-lista" class="turmas-lista">
+            <div class="empty-state"><span class="empty-icon">⏳</span><p>Carregando...</p></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <span class="card-title">Frequência Geral</span>
+            <span class="card-badge">Por Turma</span>
+          </div>
+          <div class="chart-body" style="height:240px;">
+            <canvas id="chartTurmas"></canvas>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== CHAMADA ======== -->
+    <section class="section" id="section-chamada">
+      <div class="section-header">
+        <h1 class="section-title">Fazer <span class="title-accent">Chamada</span></h1>
+        <p class="section-sub">Registre a presença dos alunos com o teclado</p>
+      </div>
+
+      <!-- Config da chamada -->
+      <div class="chamada-config card" id="chamada-config">
+        <div class="card-body">
+          <div class="config-row">
+            <div class="form-group" style="flex:2;min-width:180px;">
+              <label>Turma</label>
+              <select id="sel-turma">
+                <option value="">— Selecione a turma —</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:160px;">
+              <label>Data</label>
+              <input type="date" id="sel-data" />
+            </div>
+            <div style="display:flex;align-items:flex-end;gap:8px;">
+              <button class="btn-primary" id="btn-iniciar" disabled>
+                <span>▶</span> Iniciar Chamada
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Atalhos do teclado -->
+      <div class="kbd-strip" id="kbd-strip">
+        <div class="kbd-item"><kbd>Enter</kbd> <span>Presente + próximo</span></div>
+        <div class="kbd-item"><kbd>Espaço</kbd> <span>Falta + próximo</span></div>
+        <div class="kbd-item"><kbd>J</kbd> <span>Justificado + próximo</span></div>
+        <div class="kbd-item"><kbd>← Backspace</kbd> <span>Voltar</span></div>
+        <div class="kbd-item"><kbd>P / F</kbd> <span>Marcar sem avançar</span></div>
+      </div>
+
+      <!-- Progresso -->
+      <div class="chamada-progress hidden" id="chamada-progress">
+        <div class="progress-info">
+          <span id="prog-texto">0 / 0 alunos chamados</span>
+          <span id="prog-pct">0%</span>
+        </div>
+        <div class="progress-track">
+          <div class="progress-fill" id="prog-fill" style="width:0%"></div>
+        </div>
+      </div>
+
+      <!-- Lista de chamada -->
+      <div class="chamada-lista hidden" id="chamada-lista"></div>
+
+      <!-- Estado vazio -->
+      <div class="empty-state" id="chamada-vazio" style="padding:60px 20px;">
+        <span class="empty-icon">📋</span>
+        <p>Selecione uma turma e data para iniciar a chamada.</p>
+      </div>
+
+      <!-- Rodapé de salvar -->
+      <div class="chamada-footer hidden" id="chamada-footer">
+        <div class="chamada-resumo" id="chamada-resumo"></div>
+        <div style="display:flex;gap:10px;align-items:center;">
+          <span id="msg-save" class="save-msg"></span>
+          <button class="btn-secondary" id="btn-refazer">↺ Refazer</button>
+          <button class="btn-primary btn-save" id="btn-salvar">💾 Salvar Frequência</button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ======== HISTÓRICO ======== -->
+    <section class="section" id="section-historico">
+      <div class="section-header">
+        <h1 class="section-title">Histórico de <span class="title-accent">Frequência</span></h1>
+        <p class="section-sub">Registros já lançados</p>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-body">
+          <div class="config-row" style="flex-wrap:wrap;gap:12px;">
+            <div class="form-group" style="flex:2;min-width:180px;">
+              <label>Turma</label>
+              <select id="hist-turma-sel">
+                <option value="">— Todas as turmas —</option>
+              </select>
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>Data início</label>
+              <input type="date" id="hist-data-ini" />
+            </div>
+            <div class="form-group" style="flex:1;min-width:140px;">
+              <label>Data fim</label>
+              <input type="date" id="hist-data-fim" />
+            </div>
+            <div style="display:flex;align-items:flex-end;">
+              <button class="btn-primary" id="btn-hist-buscar">🔍 Buscar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="table-card">
+        <div class="table-toolbar">
+          <input type="text" class="search-input" id="hist-busca" placeholder="🔍 Filtrar aluno..." />
+          <span class="table-meta" id="hist-meta">—</span>
+        </div>
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Aluno</th>
+                <th>Data</th>
+                <th>Turma</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody id="hist-tbody">
+              <tr><td colspan="4" class="loading-cell">Selecione os filtros e clique em Buscar.</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="js/config.js"></script>
+  <script src="js/auth.js"></script>
+  <script src="js/professor.js"></script>
+</body>
+</html>
+
