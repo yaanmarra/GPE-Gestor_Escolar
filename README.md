@@ -1,6 +1,6 @@
 # 🏫 GPE — Gestão Pedagógica Escolar
 
-[![CI Status](https://github.com/yaanmarra/Repositorio-GPE/actions/workflows/ci.yml/badge.svg)](https://github.com/yaanmarra/Repositorio-GPE/actions)
+[![CI Status](https://github.com/yaanmarra/GPE-Gestor_Escolar/actions/workflows/ci.yml/badge.svg)](https://github.com/yaanmarra/GPE-Gestor_Escolar/actions)
 ![Node.js Version](https://img.shields.io/badge/Node.js-18%2B%20%7C%2020%2B%20%7C%2022%2B-brightgreen?logo=node.js)
 ![Express](https://img.shields.io/badge/Express-5.x-black?logo=express)
 ![MySQL](https://img.shields.io/badge/MySQL-8.0-blue?logo=mysql)
@@ -83,8 +83,8 @@ O sistema conta com um **backend RESTful** em Node.js/Express, persistência rel
 ### 1. Clonar o Repositório
 
 ```bash
-git clone https://github.com/yaanmarra/Repositorio-GPE.git
-cd Repositorio-GPE
+git clone https://github.com/yaanmarra/GPE-Gestor_Escolar.git
+cd GPE-Gestor_Escolar
 ```
 
 ---
