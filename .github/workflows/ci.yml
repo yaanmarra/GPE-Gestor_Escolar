@@ -29,11 +29,11 @@ jobs:
         working-directory: api
         run: npm ci
 
-      - name: Executar Testes Unitários (Email & Worker)
+      - name: Executar Testes Unitários (Todas as Suítes Puras)
         working-directory: api
         env:
           NODE_ENV: test
-        run: npx jest tests/emailUnit.test.js --runInBand
+        run: npx jest tests/emailUnit.test.js tests/unitValidadores.test.js tests/whatsappUnit.test.js tests/frequenciaUnit.test.js tests/portfolioSchemaUnit.test.js --runInBand
 
   test-integration:
     name: Testes de Integração & API (MySQL 8)
@@ -44,7 +44,7 @@ jobs:
         image: mysql:8.0
         env:
           MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: gpe
+          MYSQL_DATABASE: gpe_test
         ports:
           - 3306:3306
         options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=5
@@ -62,8 +62,10 @@ jobs:
 
       - name: Aplicar Esquema do Banco de Dados
         run: |
-          mysql -h 127.0.0.1 -P 3306 -u root -proot gpe < database/gpe.sql
-          mysql -h 127.0.0.1 -P 3306 -u root -proot gpe < database/migration_fase2_email_jobs.sql
+          sed 's/`gpe`/`gpe_test`/g' database/gpe.sql | mysql -h 127.0.0.1 -P 3306 -u root -proot gpe_test
+          for script in migration_entrega1 migration_fase2_email_jobs migration_entrega4_whatsapp migration_entrega5_portfolio; do
+            mysql -h 127.0.0.1 -P 3306 -u root -proot gpe_test < "database/$script.sql"
+          done
 
       - name: Instalar Dependências da API
         working-directory: api
@@ -75,7 +77,7 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_USER: root
           DB_PASSWORD: root
-          DB_NAME: gpe
+          DB_NAME: gpe_test
         run: node src/scripts/seedDev.js
 
       - name: Executar Suíte Completa de Testes
@@ -85,7 +87,7 @@ jobs:
           DB_HOST: 127.0.0.1
           DB_USER: root
           DB_PASSWORD: root
-          DB_NAME: gpe
+          DB_NAME: gpe_test
           PORT: 3000
           JWT_SECRET: ci_jwt_secret_test_key_12345
           JWT_EXPIRES_IN: 15m
@@ -93,4 +95,6 @@ jobs:
           REFRESH_EXPIRES_IN: 7d
           EMAIL_REMETENTE: ci-test@escola.com
           SENHA_APP: ci_fake_app_password
-        run: npm test
+        run: |
+          node -e "const {dbPromise}=require('./src/config/database'); require('./src/config/portfolioSchema').garantirSchemaPortfolio(dbPromise).finally(()=>dbPromise.end())"
+          npm test

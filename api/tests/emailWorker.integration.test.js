@@ -6,6 +6,7 @@ const assert = require('node:assert/strict');
 const mysql = require('mysql2/promise');
 
 const { createEmailWorker } = require('../src/workers/emailWorker');
+const { validarBancoDeTeste } = require('../src/config/database');
 const baseConfig = require('../src/config/emailConfig');
 
 const TIPO = 'teste_fase4';
@@ -52,10 +53,15 @@ const erroTemp = () => Object.assign(new Error('Connection timeout'), { code: 'E
 const erroPerm = () => Object.assign(new Error('550 Mailbox not found'), { code: 'EENVELOPE', responseCode: 550 });
 
 beforeAll(async () => {
+  const dbTeste = (process.env.DB_NAME && process.env.DB_NAME !== 'gpe')
+    ? process.env.DB_NAME
+    : (process.env.DB_TEST_NAME || 'gpe_test');
+  process.env.DB_NAME = dbTeste;
   db = mysql.createPool({
     host: process.env.DB_HOST, user: process.env.DB_USER,
-    password: process.env.DB_PASSWORD, database: process.env.DB_NAME, connectionLimit: 10,
+    password: process.env.DB_PASSWORD, database: dbTeste, connectionLimit: 10,
   });
+  await validarBancoDeTeste(db);
   await db.query('DELETE FROM email_jobs WHERE tipo_notificacao = ?', [TIPO]);
 
   // Segurança: o worker processa QUALQUER job elegível. Não rodar se houver jobs reais na fila.
