@@ -15,10 +15,12 @@ const usuarioRoutes = require('./src/routes/usuarioRoutes');
 const turmaRoutes = require('./src/routes/turmaRoutes');
 const presencaRoutes = require('./src/routes/presencaRoutes');
 const healthRoutes = require('./src/routes/healthRoutes');
+const whatsappRoutes = require('./src/routes/whatsappRoutes');
 
 const logger = require('./src/utils/logger');
 const pinoHttp = require('pino-http');
 const rateLimit = require('express-rate-limit');
+const whatsappConfig = require('./src/config/whatsappConfig');
 
 const app = express();
 // CORS configurável por ambiente
@@ -30,7 +32,13 @@ const corsOptions = {
   allowedHeaders: ['Content-Type', 'Authorization'],
 };
 app.use(cors(corsOptions));
-app.use(express.json());
+app.use(express.json({
+  verify: (req, _res, buf) => {
+    if (req.originalUrl && req.originalUrl.startsWith('/api/webhooks/whatsapp')) {
+      req.rawBody = buf;
+    }
+  },
+}));
 
 // Log estruturado em requisições
 app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url.startsWith('/api/health') } }));
@@ -41,6 +49,7 @@ const limiter = rateLimit({
   max: 100, // Limite por IP
   standardHeaders: true,
   legacyHeaders: false,
+  skip: (req) => req.originalUrl && req.originalUrl.startsWith('/api/webhooks/whatsapp'),
   message: { sucesso: false, erro: 'Muitas requisições deste IP, tente novamente mais tarde.' }
 });
 // Aplica a taxa limite apenas nas rotas de API
@@ -58,6 +67,7 @@ app.use('/api', authRoutes);
 app.use('/api', usuarioRoutes);
 app.use('/api/turmas', turmaRoutes);
 app.use('/api', presencaRoutes);
+app.use('/api', whatsappRoutes);
 
 // Handlers de erro
 app.use(notFound);
@@ -69,6 +79,8 @@ const server = require('http').createServer(app);
 // "npm start envia e-mails"). Para rodar separado: EMAIL_WORKER_INLINE=false + npm run worker.
 // Vários workers simultâneos são seguros (claim com SKIP LOCKED).
 const { iniciarWorker, pararWorker } = require('./src/workers/emailWorker');
+const { iniciarWhatsappWorker, pararWhatsappWorker, prepararSchemaWhatsapp } = require('./src/workers/whatsappWorker');
+const { prepararSchemaPortfolio } = require('./src/config/portfolioSchema');
 
 if (require.main === module) {
   const PORT = process.env.PORT || 3000;
@@ -79,11 +91,18 @@ if (require.main === module) {
   if (process.env.EMAIL_WORKER_INLINE !== 'false') {
     iniciarWorker();
   }
+  if (whatsappConfig.enabled && process.env.WHATSAPP_WORKER_INLINE !== 'false') {
+    iniciarWhatsappWorker();
+  } else {
+    // Mesmo sem worker, garante tabelas/colunas usadas pelas rotas de WhatsApp
+    prepararSchemaWhatsapp();
+  }
+  prepararSchemaPortfolio();
 
   async function encerrar(sinal) {
     logger.info(`${sinal} recebido, encerrando...`);
     server.close();
-    await pararWorker();
+    await Promise.all([pararWorker(), pararWhatsappWorker()]);
     process.exit(0);
   }
   process.on('SIGINT', () => encerrar('SIGINT'));

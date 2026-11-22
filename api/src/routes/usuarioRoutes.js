@@ -7,13 +7,14 @@ const { db, dbPromise } = require('../config/database');
 const { sucesso, erro } = require('../utils/resposta');
 const { autenticar, autorizar } = require('../middlewares/auth');
 const { validarEmail, validarSenha, validarTipo, validarCamposObrigatorios } = require('../utils/validadores');
+const { normalizarTelefoneBR } = require('../utils/telefone');
 
 // ─────────────────────────────────────────
 // POST /api/cadastro — Cadastrar novo usuário
 // Apenas gestores podem cadastrar
 // ─────────────────────────────────────────
 router.post('/cadastro', autenticar, autorizar('gestor'), (req, res) => {
-  const { nome, email, senha, tipo, telefone, disciplina, turma_id, pai_id } = req.body;
+  const { nome, email, senha, tipo, telefone, whatsapp_optin, disciplina, turma_id, pai_id } = req.body;
 
   // 1) Validação dos campos básicos
   const { valido, faltando } = validarCamposObrigatorios(['nome', 'email', 'senha', 'tipo'], req.body);
@@ -61,16 +62,16 @@ router.post('/cadastro', autenticar, autorizar('gestor'), (req, res) => {
         if (paiRows.length === 0)
           return erro(res, `Pai/responsável com ID ${pai_id} não encontrado.`);
 
-        executarCadastro(res, { nome, email, senha: senhaHash, tipo, telefone, disciplina, turma_id, pai_id });
+        executarCadastro(res, { nome, email, senha: senhaHash, tipo, telefone, whatsapp_optin, disciplina, turma_id, pai_id });
       });
     } else {
-      executarCadastro(res, { nome, email, senha: senhaHash, tipo, telefone, disciplina, turma_id, pai_id });
+      executarCadastro(res, { nome, email, senha: senhaHash, tipo, telefone, whatsapp_optin, disciplina, turma_id, pai_id });
     }
   });
 });
 
 function executarCadastro(res, dados) {
-  const { nome, email, senha, tipo, telefone, disciplina, turma_id, pai_id } = dados;
+  const { nome, email, senha, tipo, telefone, whatsapp_optin, disciplina, turma_id, pai_id } = dados;
 
   db.getConnection((errConn, conn) => {
     if (errConn) return erro(res, 'Erro ao obter conexão com o banco.', 500);
@@ -96,11 +97,15 @@ function executarCadastro(res, dados) {
           let sql, valores, nomeTabela;
 
           switch (tipo) {
-            case 'pai':
-              sql = 'INSERT INTO pais (usuario_id, telefone) VALUES (?, ?)';
-              valores = [usuario_id, telefone || null];
+            case 'pai': {
+              const foneE164 = telefone ? normalizarTelefoneBR(telefone) : null;
+              const optin = Boolean(whatsapp_optin && foneE164) ? 1 : 0;
+              sql = `INSERT INTO pais (usuario_id, telefone, telefone_e164, whatsapp_optin, whatsapp_optin_em, whatsapp_optin_origem)
+                     VALUES (?, ?, ?, ?, IF(? = 1, NOW(), NULL), IF(? = 1, 'secretaria', NULL))`;
+              valores = [usuario_id, telefone || null, foneE164, optin, optin, optin];
               nomeTabela = 'Pai';
               break;
+            }
             case 'professor':
               sql = 'INSERT INTO professores (usuario_id, disciplina) VALUES (?, ?)';
               valores = [usuario_id, disciplina];
@@ -124,7 +129,7 @@ function executarCadastro(res, dados) {
               });
           }
 
-          conn.query(sql, valores, (err2) => {
+          const finalizarPai = (err2) => {
             if (err2) {
               return conn.rollback(() => {
                 conn.release();
@@ -142,6 +147,22 @@ function executarCadastro(res, dados) {
               conn.release();
               sucesso(res, { mensagem: `${nomeTabela} cadastrado(a) com sucesso!` }, 201);
             });
+          };
+
+          conn.query(sql, valores, (err2, res2) => {
+            // Fallback seguro caso a migration da Entrega 4 ainda não tenha sido aplicada no banco
+            if (err2 && tipo === 'pai' && err2.code === 'ER_BAD_FIELD_ERROR') {
+              return conn.query('INSERT INTO pais (usuario_id, telefone) VALUES (?, ?)', [usuario_id, telefone || null], finalizarPai);
+            }
+            if (!err2 && tipo === 'aluno' && res2?.insertId && pai_id) {
+              return conn.query(
+                `INSERT IGNORE INTO aluno_responsavel (aluno_id, pai_id, parentesco, principal, recebe_notificacoes)
+                 VALUES (?, ?, 'responsavel', 1, 1)`,
+                [res2.insertId, pai_id],
+                () => finalizarPai(null)
+              );
+            }
+            finalizarPai(err2);
           });
         }
       );
@@ -180,11 +201,24 @@ router.get('/pais', autenticar, autorizar('gestor'), async (req, res, next) => {
     const offset = (page - 1) * limit;
 
     const [countRows] = await dbPromise.query('SELECT COUNT(*) as total FROM pais p JOIN usuarios u ON p.usuario_id = u.id');
-    const [results] = await dbPromise.query(
-      `SELECT p.id, u.nome, u.email, p.telefone
-       FROM pais p JOIN usuarios u ON p.usuario_id = u.id ORDER BY u.nome LIMIT ? OFFSET ?`,
-      [limit, offset]
-    );
+    let results;
+    try {
+      [results] = await dbPromise.query(
+        `SELECT p.id, u.nome, u.email, p.telefone, p.telefone_e164, p.whatsapp_optin, p.whatsapp_optout_em
+         FROM pais p JOIN usuarios u ON p.usuario_id = u.id ORDER BY u.nome LIMIT ? OFFSET ?`,
+        [limit, offset]
+      );
+    } catch (e) {
+      if (e.code === 'ER_BAD_FIELD_ERROR') {
+        [results] = await dbPromise.query(
+          `SELECT p.id, u.nome, u.email, p.telefone
+           FROM pais p JOIN usuarios u ON p.usuario_id = u.id ORDER BY u.nome LIMIT ? OFFSET ?`,
+          [limit, offset]
+        );
+      } else {
+        throw e;
+      }
+    }
 
     sucesso(res, { dados: results, meta: { total: countRows[0].total, page, limit } });
   } catch (err) {
@@ -223,12 +257,19 @@ router.get('/alunos', autenticar, autorizar('gestor', 'professor'), async (req, 
     const page = Math.max(1, parseInt(req.query.page, 10) || 1);
     const offset = (page - 1) * limit;
 
-    const [countRows] = await dbPromise.query('SELECT COUNT(*) as total FROM alunos a JOIN usuarios u ON a.usuario_id = u.id');
+    const professor = req.usuario.tipo === 'professor';
+    const filtro = professor ? `WHERE EXISTS (
+      SELECT 1 FROM professor_turma pt JOIN professores pr ON pr.id = pt.professor_id
+      WHERE pt.turma_id = a.turma_id AND pr.usuario_id = ?
+    )` : '';
+    const params = professor ? [req.usuario.id] : [];
+    const origem = 'FROM alunos a JOIN usuarios u ON a.usuario_id = u.id';
+    const [countRows] = await dbPromise.query(`SELECT COUNT(*) AS total ${origem} ${filtro}`, params);
     const [results] = await dbPromise.query(
       `SELECT a.id, u.nome, u.email, t.nome AS turma, a.turma_id, a.pai_id
-       FROM alunos a JOIN usuarios u ON a.usuario_id = u.id
-       LEFT JOIN turmas t ON t.id = a.turma_id ORDER BY u.nome LIMIT ? OFFSET ?`,
-      [limit, offset]
+       ${origem} LEFT JOIN turmas t ON t.id = a.turma_id ${filtro}
+       ORDER BY u.nome, a.id LIMIT ? OFFSET ?`,
+      [...params, limit, offset]
     );
 
     sucesso(res, { dados: results, meta: { total: countRows[0].total, page, limit } });

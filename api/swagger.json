@@ -1,14 +1,14 @@
 {
-  "openapi": "3.0.0",
+  "openapi": "3.0.3",
   "info": {
-    "title": "API GPE",
-    "version": "1.0.0",
-    "description": "Documentação da API do sistema GPE desenvolvida em Node.js com Express e MySQL."
+    "title": "API GPE — Gestor de Presença Escolar",
+    "version": "4.0.0",
+    "description": "Especificação OpenAPI 3.0 da API REST do sistema GPE (Gestor de Presença Escolar), desenvolvida em Node.js, Express 5 e MySQL 8, com autenticação JWT, controle de acesso por perfil e vínculo (RBAC/ABAC), motor de conformidade legal (LDB, Bolsa Família, Pé-de-Meia, Conselho Tutelar e Score ABC) e fila transacional (Transactional Outbox) para notificações por e-mail e WhatsApp."
   },
   "servers": [
     {
       "url": "http://localhost:3000",
-      "description": "Servidor local"
+      "description": "Servidor local de desenvolvimento"
     }
   ],
   "components": {
@@ -16,7 +16,45 @@
       "bearerAuth": {
         "type": "http",
         "scheme": "bearer",
-        "bearerFormat": "JWT"
+        "bearerFormat": "JWT",
+        "description": "Access Token JWT obtido em POST /api/login"
+      }
+    },
+    "schemas": {
+      "ErroPadrao": {
+        "type": "object",
+        "properties": {
+          "sucesso": { "type": "boolean", "example": false },
+          "erro": { "type": "string", "example": "Descrição do erro." },
+          "codigo": { "type": "string", "example": "TOKEN_EXPIRADO" }
+        }
+      },
+      "SucessoMensagem": {
+        "type": "object",
+        "properties": {
+          "sucesso": { "type": "boolean", "example": true },
+          "dados": {
+            "type": "object",
+            "properties": {
+              "mensagem": { "type": "string" }
+            }
+          }
+        }
+      },
+      "PresencaStatus": {
+        "type": "string",
+        "enum": ["presente", "falta", "justificado"]
+      },
+      "Turma": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "integer", "example": 1 },
+          "nome": { "type": "string", "example": "9º Ano A" },
+          "ano": { "type": "integer", "example": 2026 },
+          "turno": { "type": "string", "enum": ["matutino", "vespertino", "noturno", "integral"], "example": "matutino" },
+          "ativa": { "type": "integer", "example": 1 },
+          "total_alunos": { "type": "integer", "example": 28 }
+        }
       }
     }
   },
@@ -26,54 +64,55 @@
     }
   ],
   "tags": [
-    {
-      "name": "Sistema",
-      "description": "Rotas de teste e verificação do servidor e banco."
-    },
-    {
-      "name": "Autenticação",
-      "description": "Rotas de login e cadastro de usuários."
-    },
-    {
-      "name": "Gestores",
-      "description": "Rotas de gestão de turmas, usuários e relatórios."
-    },
-    {
-      "name": "Alunos",
-      "description": "Rotas relacionadas aos alunos."
-    },
-    {
-      "name": "Pais",
-      "description": "Rotas relacionadas aos responsáveis."
-    },
-    {
-      "name": "Professores",
-      "description": "Rotas relacionadas aos professores e ao controle de presença."
-    }
+    { "name": "Sistema", "description": "Verificações de saúde (liveness/readiness) e status do servidor." },
+    { "name": "Autenticação", "description": "Login, renovação de Access Token e encerramento síncrono de sessão." },
+    { "name": "Usuários", "description": "Cadastro e listagem paginada de usuários, alunos, pais e professores." },
+    { "name": "Turmas", "description": "CRUD de turmas, listagem de alunos por turma e vínculo professor–turma." },
+    { "name": "Presença e Frequência", "description": "Chamada individual e em lote idempotente, histórico, relatórios LDB e Radar ABC." },
+    { "name": "WhatsApp e Webhooks", "description": "Consentimento LGPD, sessão WAHA/QR Code, disparo de teste, monitoramento de fila e webhooks." }
   ],
   "paths": {
     "/": {
       "get": {
         "tags": ["Sistema"],
-        "summary": "Teste do servidor",
+        "security": [],
+        "summary": "Status básico do servidor",
+        "responses": {
+          "200": { "description": "Servidor GPE rodando com sucesso." }
+        }
+      }
+    },
+    "/api/health/live": {
+      "get": {
+        "tags": ["Sistema"],
+        "security": [],
+        "summary": "Liveness probe da API",
         "responses": {
           "200": {
-            "description": "Servidor rodando com sucesso"
+            "description": "Servidor ativo.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "UP" },
+                    "message": { "type": "string", "example": "Servidor está vivo" }
+                  }
+                }
+              }
+            }
           }
         }
       }
     },
-    "/api/teste-banco": {
+    "/api/health/ready": {
       "get": {
         "tags": ["Sistema"],
-        "summary": "Testa conexão com o banco",
+        "security": [],
+        "summary": "Readiness probe (API + conectividade MySQL)",
         "responses": {
-          "200": {
-            "description": "Banco conectado com sucesso"
-          },
-          "500": {
-            "description": "Erro ao acessar o banco"
-          }
+          "200": { "description": "Servidor e banco de dados prontos." },
+          "503": { "description": "Banco de dados indisponível." }
         }
       }
     },
@@ -81,475 +120,209 @@
       "post": {
         "tags": ["Autenticação"],
         "security": [],
-        "summary": "Realiza login do usuário",
+        "summary": "Autentica o usuário e emite Access Token e Refresh Token JWT",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["email", "senha"],
                 "properties": {
-                  "email": {
-                    "type": "string",
-                    "example": "usuario@email.com"
-                  },
-                  "senha": {
-                    "type": "string",
-                    "example": "123456"
-                  }
-                },
-                "required": ["email", "senha"]
+                  "email": { "type": "string", "format": "email", "example": "gestor@escola.com" },
+                  "senha": { "type": "string", "example": "123456" }
+                }
               }
             }
           }
         },
         "responses": {
           "200": {
-            "description": "Login realizado com sucesso"
+            "description": "Login realizado com sucesso.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "sucesso": { "type": "boolean", "example": true },
+                    "dados": {
+                      "type": "object",
+                      "properties": {
+                        "accessToken": { "type": "string" },
+                        "refreshToken": { "type": "string" },
+                        "usuario": {
+                          "type": "object",
+                          "properties": {
+                            "id": { "type": "integer" },
+                            "nome": { "type": "string" },
+                            "tipo": { "type": "string", "enum": ["gestor", "professor", "pai", "aluno"] }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
           },
-          "400": {
-            "description": "Campos obrigatórios não preenchidos"
-          },
-          "401": {
-            "description": "E-mail ou senha incorretos"
-          },
-          "500": {
-            "description": "Erro no servidor"
+          "400": { "description": "E-mail/senha ausentes ou formato de e-mail inválido." },
+          "401": { "description": "E-mail ou senha incorretos." },
+          "500": { "description": "Erro interno do servidor." }
+        }
+      }
+    },
+    "/api/refresh-token": {
+      "post": {
+        "tags": ["Autenticação"],
+        "security": [],
+        "summary": "Emite um novo Access Token a partir de um Refresh Token válido e ativo no banco",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["refreshToken"],
+                "properties": {
+                  "refreshToken": { "type": "string" }
+                }
+              }
+            }
           }
+        },
+        "responses": {
+          "200": { "description": "Novo Access Token emitido com sucesso." },
+          "401": { "description": "Refresh token ausente, expirado, revogado ou inválido." },
+          "500": { "description": "Erro interno do servidor." }
+        }
+      }
+    },
+    "/api/logout": {
+      "post": {
+        "tags": ["Autenticação"],
+        "security": [],
+        "summary": "Revoga o Refresh Token de forma síncrona no MySQL e encerra a sessão",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "refreshToken": { "type": "string" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Sessão encerrada e refresh token invalidado no banco." },
+          "500": { "description": "Erro ao encerrar sessão." }
         }
       }
     },
     "/api/cadastro": {
       "post": {
-        "tags": ["Autenticação","Gestores"],
-        "summary": "Cadastra um novo usuário",
+        "tags": ["Usuários"],
+        "summary": "Cadastra um novo usuário (gestor, professor, pai ou aluno) — exclusivo para gestor",
         "requestBody": {
           "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "type": "object",
+                "required": ["nome", "email", "senha", "tipo"],
                 "properties": {
-                  "nome": {
-                    "type": "string",
-                    "example": "João Silva"
-                  },
-                  "email": {
-                    "type": "string",
-                    "example": "joao@email.com"
-                  },
-                  "senha": {
-                    "type": "string",
-                    "example": "123456"
-                  },
-                  "tipo": {
-                    "type": "string",
-                    "enum": ["aluno", "pai", "professor", "gestor"],
-                    "example": "aluno"
-                  },
-                  "telefone": {
-                    "type": "string",
-                    "example": "(11) 99999-9999"
-                  },
-                  "disciplina": {
-                    "type": "string",
-                    "example": "Matemática"
-                  },
-                  "turma_id": {
-                    "type": "integer",
-                    "example": 1
-                  },
-                  "pai_id": {
-                    "type": "integer",
-                    "example": 2
-                  }
-                },
-                "required": ["nome", "email", "senha", "tipo"]
+                  "nome": { "type": "string", "example": "Maria Souza" },
+                  "email": { "type": "string", "format": "email", "example": "maria@escola.com" },
+                  "senha": { "type": "string", "minLength": 6, "example": "senha123" },
+                  "tipo": { "type": "string", "enum": ["gestor", "professor", "pai", "aluno"] },
+                  "telefone": { "type": "string", "example": "11 99999-8888", "description": "Opcional para tipo 'pai'; normalizado para E.164." },
+                  "whatsapp_optin": { "type": "boolean", "example": true, "description": "Consentimento LGPD inicial para notificações WhatsApp (tipo 'pai')." },
+                  "disciplina": { "type": "string", "example": "Matemática", "description": "Obrigatório para tipo 'professor'." },
+                  "pai_id": { "type": "integer", "example": 1, "description": "Obrigatório para tipo 'aluno'." },
+                  "turma_id": { "type": "integer", "example": 1, "description": "Obrigatório para tipo 'aluno'." }
+                }
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Cadastro realizado com sucesso"
-          },
-          "400": {
-            "description": "Erro de validação"
-          },
-          "500": {
-            "description": "Erro interno"
-          }
-        }
-      }
-    },
-    "/api/turmas": {
-      "get": {
-        "tags": ["Gestores"],
-        "summary": "Lista todas as turmas",
-        "responses": {
-          "200": {
-            "description": "Lista de turmas retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao listar turmas"
-          }
-        }
-      },
-      "post": {
-        "tags": ["Gestores"],
-        "summary": "Cria uma nova turma",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "nome": {
-                    "type": "string",
-                    "example": "1º Ano A"
-                  },
-                  "ano": {
-                    "type": "integer",
-                    "example": 2026
-                  },
-                  "turno": {
-                    "type": "string",
-                    "example": "matutino"
-                  }
-                },
-                "required": ["nome", "ano"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Turma criada com sucesso"
-          },
-          "400": {
-            "description": "Dados inválidos"
-          },
-          "500": {
-            "description": "Erro ao criar turma"
-          }
-        }
-      }
-    },
-    "/api/turmas/{id}": {
-      "get": {
-        "tags": ["Gestores"],
-        "summary": "Busca uma turma por ID",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Turma encontrada"
-          },
-          "404": {
-            "description": "Turma não encontrada"
-          },
-          "500": {
-            "description": "Erro ao buscar turma"
-          }
-        }
-      },
-      "put": {
-        "tags": ["Gestores"],
-        "summary": "Atualiza uma turma",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "nome": {
-                    "type": "string",
-                    "example": "2º Ano B"
-                  },
-                  "ano": {
-                    "type": "integer",
-                    "example": 2026
-                  },
-                  "turno": {
-                    "type": "string",
-                    "example": "vespertino"
-                  },
-                  "ativa": {
-                    "type": "integer",
-                    "example": 1
-                  }
-                },
-                "required": ["nome", "ano"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Turma atualizada com sucesso"
-          },
-          "404": {
-            "description": "Turma não encontrada"
-          },
-          "500": {
-            "description": "Erro ao atualizar turma"
-          }
-        }
-      },
-      "delete": {
-        "tags": ["Gestores"],
-        "summary": "Exclui uma turma",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Turma excluída com sucesso"
-          },
-          "404": {
-            "description": "Turma não encontrada"
-          },
-          "500": {
-            "description": "Erro ao excluir turma"
-          }
-        }
-      }
-    },
-    "/api/turmas/{id}/alunos": {
-      "get": {
-        "tags": ["Gestores"],
-        "summary": "Lista os alunos de uma turma",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Lista de alunos da turma retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao buscar alunos da turma"
-          }
-        }
-      }
-    },
-    "/api/turmas/{id}/professores": {
-      "post": {
-        "tags": ["Gestores"],
-        "summary": "Vincula um professor a uma turma",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "professor_id": {
-                    "type": "integer",
-                    "example": 3
-                  }
-                },
-                "required": ["professor_id"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Professor vinculado com sucesso"
-          },
-          "400": {
-            "description": "Dados inválidos"
-          },
-          "500": {
-            "description": "Erro ao vincular professor"
-          }
-        }
-      }
-    },
-    "/api/turmas/{id}/professores/{professor_id}": {
-      "delete": {
-        "tags": ["Gestores"],
-        "summary": "Remove o vínculo de um professor com uma turma",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          },
-          {
-            "name": "professor_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Professor removido da turma com sucesso"
-          },
-          "404": {
-            "description": "Vínculo não encontrado"
-          },
-          "500": {
-            "description": "Erro ao remover professor da turma"
-          }
-        }
-      }
-    },
-    "/api/alunos": {
-      "get": {
-        "tags": ["Alunos"],
-        "summary": "Lista todos os alunos",
-        "responses": {
-          "200": {
-            "description": "Lista retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao listar alunos"
-          }
-        }
-      }
-    },
-    "/api/alunos/{id}/turma": {
-      "patch": {
-        "tags": ["Alunos"],
-        "summary": "Atualiza a turma de um aluno",
-        "parameters": [
-          {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "type": "object",
-                "properties": {
-                  "turma_id": {
-                    "type": "integer",
-                    "example": 2
-                  }
-                },
-                "required": ["turma_id"]
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Turma do aluno atualizada com sucesso"
-          },
-          "404": {
-            "description": "Aluno não encontrado"
-          },
-          "500": {
-            "description": "Erro ao atualizar turma do aluno"
-          }
-        }
-      }
-    },
-    "/api/pais": {
-      "get": {
-        "tags": ["Pais"],
-        "summary": "Lista todos os pais",
-        "responses": {
-          "200": {
-            "description": "Lista retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao listar pais"
-          }
-        }
-      }
-    },
-    "/api/professores": {
-      "get": {
-        "tags": ["Professores","Gestores"],
-        "summary": "Lista todos os professores",
-        "responses": {
-          "200": {
-            "description": "Lista retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao listar professores"
-          }
+          "201": { "description": "Usuário cadastrado com sucesso em transação atômica." },
+          "400": { "description": "Validação falhou ou e-mail já cadastrado." },
+          "401": { "description": "Token não fornecido ou inválido." },
+          "403": { "description": "Acesso negado (requer perfil gestor)." },
+          "500": { "description": "Erro ao cadastrar usuário." }
         }
       }
     },
     "/api/usuarios": {
       "get": {
-        "tags": ["Gestores"],
-        "summary": "Lista todos os usuários",
+        "tags": ["Usuários"],
+        "summary": "Lista usuários cadastrados com paginação (apenas gestor)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
+        ],
         "responses": {
-          "200": {
-            "description": "Lista retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao listar usuários"
-          }
+          "200": { "description": "Lista paginada de usuários retornada com metadados." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
         }
       }
     },
-    "/api/registrar-presenca": {
-      "post": {
-        "tags": ["Professores"],
-        "summary": "Registra presença de um aluno",
-        "description": "Se o status for falta, o sistema também registra uma notificação e tenta enviar e-mail ao responsável.",
+    "/api/pais": {
+      "get": {
+        "tags": ["Usuários"],
+        "summary": "Lista responsáveis (pais) e status de consentimento WhatsApp (apenas gestor)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de responsáveis." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/professores": {
+      "get": {
+        "tags": ["Usuários"],
+        "summary": "Lista professores cadastrados (gestor ou professor)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de professores." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/alunos": {
+      "get": {
+        "tags": ["Usuários"],
+        "summary": "Lista alunos (gestor vê todos; professor vê apenas alunos das suas turmas)",
+        "parameters": [
+          { "name": "page", "in": "query", "schema": { "type": "integer", "default": 1 } },
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 100 } }
+        ],
+        "responses": {
+          "200": { "description": "Lista paginada de alunos respeitando escopo de turma." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/alunos/{id}/turma": {
+      "patch": {
+        "tags": ["Usuários"],
+        "summary": "Vincula ou transfere um aluno para uma turma (apenas gestor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -557,115 +330,500 @@
               "schema": {
                 "type": "object",
                 "properties": {
-                  "aluno_id": {
-                    "type": "integer",
-                    "example": 1
-                  },
-                  "professor_id": {
-                    "type": "integer",
-                    "example": 1
-                  },
-                  "data": {
-                    "type": "string",
-                    "example": "2026-04-10"
-                  },
-                  "status": {
-                    "type": "string",
-                    "enum": ["presente", "falta", "justificado"],
-                    "example": "presente"
-                  }
-                },
-                "required": ["aluno_id", "professor_id", "data", "status"]
+                  "turma_id": { "type": "integer", "nullable": true, "example": 2 }
+                }
               }
             }
           }
         },
         "responses": {
-          "200": {
-            "description": "Presença registrada com sucesso"
-          },
-          "400": {
-            "description": "Campos obrigatórios ausentes"
-          },
-          "500": {
-            "description": "Erro ao registrar presença"
+          "200": { "description": "Aluno vinculado à turma com sucesso." },
+          "404": { "description": "Aluno não encontrado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/turmas": {
+      "get": {
+        "tags": ["Turmas"],
+        "summary": "Lista turmas (gestor vê todas; professor vê apenas turmas vinculadas)",
+        "responses": {
+          "200": { "description": "Lista de turmas com total de alunos." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
+        }
+      },
+      "post": {
+        "tags": ["Turmas"],
+        "summary": "Cria uma nova turma (apenas gestor)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nome", "ano"],
+                "properties": {
+                  "nome": { "type": "string", "example": "1º EM A" },
+                  "ano": { "type": "integer", "example": 2026 },
+                  "turno": { "type": "string", "enum": ["matutino", "vespertino", "noturno", "integral"], "default": "matutino" }
+                }
+              }
+            }
           }
+        },
+        "responses": {
+          "201": { "description": "Turma criada com sucesso." },
+          "400": { "description": "Nome ou ano não informado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/turmas/{id}": {
+      "get": {
+        "tags": ["Turmas"],
+        "summary": "Busca detalhes de uma turma por ID (gestor ou professor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Dados da turma." },
+          "404": { "description": "Turma não encontrada." }
+        }
+      },
+      "put": {
+        "tags": ["Turmas"],
+        "summary": "Atualiza dados de uma turma (apenas gestor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["nome", "ano"],
+                "properties": {
+                  "nome": { "type": "string" },
+                  "ano": { "type": "integer" },
+                  "turno": { "type": "string" },
+                  "ativa": { "type": "integer", "enum": [0, 1] }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Turma atualizada com sucesso." },
+          "400": { "description": "Dados obrigatórios ausentes." },
+          "404": { "description": "Turma não encontrada." }
+        }
+      },
+      "delete": {
+        "tags": ["Turmas"],
+        "summary": "Exclui uma turma por ID (apenas gestor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Turma excluída com sucesso." },
+          "404": { "description": "Turma não encontrada." }
+        }
+      }
+    },
+    "/api/turmas/{id}/alunos": {
+      "get": {
+        "tags": ["Turmas"],
+        "summary": "Lista alunos matriculados na turma (professor deve estar vinculado à turma)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista de alunos da turma." },
+          "403": { "description": "Turma não vinculada ao professor autenticado." }
+        }
+      }
+    },
+    "/api/turmas/{id}/professores": {
+      "post": {
+        "tags": ["Turmas"],
+        "summary": "Vincula um professor à turma (apenas gestor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["professor_id"],
+                "properties": {
+                  "professor_id": { "type": "integer", "example": 1 }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Professor vinculado à turma." },
+          "400": { "description": "professor_id não informado." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/turmas/{id}/professores/{professor_id}": {
+      "delete": {
+        "tags": ["Turmas"],
+        "summary": "Remove o vínculo de um professor com a turma (apenas gestor)",
+        "parameters": [
+          { "name": "id", "in": "path", "required": true, "schema": { "type": "integer" } },
+          { "name": "professor_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Professor desvinculado com sucesso." },
+          "404": { "description": "Vínculo não encontrado." }
+        }
+      }
+    },
+    "/api/registrar-presenca": {
+      "post": {
+        "tags": ["Presença e Frequência"],
+        "summary": "Registra ou retifica presença individual de forma transacional e idempotente (upsert)",
+        "description": "Valida vínculo professor–turma–aluno (mitigação VULN-01), bloqueia falsificação de professor_id, grava turma_id, suporta repetição idempotente sem ER_DUP_ENTRY (TC-39) e enfileira ou cancela notificações pendentes em email_jobs e whatsapp_jobs na mesma transação.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["aluno_id", "data", "status"],
+                "properties": {
+                  "aluno_id": { "type": "integer", "example": 1 },
+                  "data": { "type": "string", "format": "date", "example": "2026-10-15" },
+                  "status": { "$ref": "#/components/schemas/PresencaStatus" },
+                  "turma_id": { "type": "integer", "description": "Opcional; se informado, deve coincidir com a turma do aluno." },
+                  "professor_id": { "type": "integer", "description": "Para professor, deve coincidir com o docente autenticado; para gestor, identifica o docente responsável." },
+                  "grade_horaria_id": { "type": "integer", "nullable": true, "description": "Opcional para chamada por aula/slot." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Presença registrada ou retificada com sucesso (idempotente)." },
+          "400": { "description": "Dados inválidos ou turma sem professor vinculado." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado (perfil sem permissão, aluno de outra turma ou professor_id falsificado)." },
+          "404": { "description": "Aluno não encontrado." },
+          "409": { "description": "Múltiplas chamadas no mesmo dia sem especificação de professor." },
+          "500": { "description": "Erro interno (transação revertida)." }
+        }
+      }
+    },
+    "/api/registrar-presenca-turma": {
+      "post": {
+        "tags": ["Presença e Frequência"],
+        "summary": "Registra ou retifica chamada em lote de uma turma em transação atômica",
+        "description": "Valida homogeneidade do lote (todos os alunos na mesma turma) e vínculo em professor_turma antes de qualquer gravação. Qualquer aluno fora de escopo causa ROLLBACK integral com HTTP 403.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["data", "presencas"],
+                "properties": {
+                  "turma_id": { "type": "integer", "example": 1 },
+                  "professor_id": { "type": "integer" },
+                  "grade_horaria_id": { "type": "integer", "nullable": true },
+                  "data": { "type": "string", "format": "date", "example": "2026-10-15" },
+                  "presencas": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                      "type": "object",
+                      "required": ["aluno_id", "status"],
+                      "properties": {
+                        "aluno_id": { "type": "integer", "example": 1 },
+                        "status": { "$ref": "#/components/schemas/PresencaStatus" },
+                        "grade_horaria_id": { "type": "integer", "nullable": true }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Presenças da turma registradas com sucesso." },
+          "400": { "description": "Payload inválido, aluno inexistente ou turma sem professor vinculado." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Professor sem vínculo com a turma, lote misto de turmas ou falsificação de professor_id." },
+          "409": { "description": "Ambiguidade de chamadas existentes no dia sem informar professor_id." }
         }
       }
     },
     "/api/presencas": {
       "get": {
-        "tags": ["Professores","Gestores"],
-        "summary": "Lista todas as presenças",
+        "tags": ["Presença e Frequência"],
+        "summary": "Lista presenças registradas (gestor vê todas; professor vê apenas das suas turmas)",
         "responses": {
-          "200": {
-            "description": "Lista retornada com sucesso"
-          },
-          "500": {
-            "description": "Erro ao buscar presenças"
-          }
+          "200": { "description": "Lista de presenças ordenada por data decrescente." },
+          "401": { "description": "Não autenticado." },
+          "403": { "description": "Acesso negado." }
         }
       }
     },
     "/api/presencas/{usuario_id}": {
       "get": {
-        "tags": ["Professores"],
-        "summary": "Busca as presenças de um aluno pelo usuario_id",
+        "tags": ["Presença e Frequência"],
+        "summary": "Consulta histórico de presenças de um aluno pelo usuario_id (protegido contra IDOR)",
         "parameters": [
-          {
-            "name": "usuario_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
+          { "name": "usuario_id", "in": "path", "required": true, "schema": { "type": "integer" } }
         ],
         "responses": {
-          "200": {
-            "description": "Presenças retornadas com sucesso"
-          },
-          "500": {
-            "description": "Erro ao buscar presenças"
-          }
+          "200": { "description": "Histórico de presenças do aluno." },
+          "403": { "description": "Aluno tentando ver outro estudante ou professor sem vínculo com a turma." }
         }
       }
     },
     "/api/presencas-filho/{usuario_id}": {
       "get": {
-        "tags": ["Professores","Gestores"],
-        "summary": "Busca as presenças do filho vinculado ao responsável",
+        "tags": ["Presença e Frequência"],
+        "summary": "Consulta presenças dos filhos de um responsável pelo usuario_id do pai (protegido contra IDOR)",
         "parameters": [
-          {
-            "name": "usuario_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "integer"
-            }
-          }
+          { "name": "usuario_id", "in": "path", "required": true, "schema": { "type": "integer" } }
         ],
         "responses": {
-          "200": {
-            "description": "Presenças do filho retornadas com sucesso"
-          },
-          "500": {
-            "description": "Erro ao buscar presenças do filho"
-          }
+          "200": { "description": "Lista de presenças dos dependentes." },
+          "403": { "description": "Responsável tentando consultar filhos de outro usuário." }
+        }
+      }
+    },
+    "/api/presencas-turma": {
+      "get": {
+        "tags": ["Presença e Frequência"],
+        "summary": "Consulta presenças já lançadas de uma turma em uma data específica",
+        "parameters": [
+          { "name": "turma_id", "in": "query", "required": true, "schema": { "type": "integer" } },
+          { "name": "data", "in": "query", "required": true, "schema": { "type": "string", "format": "date" } },
+          { "name": "chamada", "in": "query", "required": false, "schema": { "type": "string", "enum": ["diaria"] } },
+          { "name": "grade_horaria_id", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Presenças da turma na data consultada." },
+          "400": { "description": "Parâmetros obrigatórios ausentes ou combinação inválida." },
+          "403": { "description": "Professor não vinculado à turma." },
+          "409": { "description": "Múltiplas chamadas diárias distintas para o mesmo aluno." }
         }
       }
     },
     "/api/relatorio-frequencia": {
       "get": {
-        "tags": ["Gestores"],
-        "summary": "Gera relatório de frequência",
+        "tags": ["Presença e Frequência"],
+        "summary": "Gera relatório consolidado de frequência agrupado por aluno_id (a.id) com métricas LDB",
         "responses": {
-          "200": {
-            "description": "Relatório gerado com sucesso"
-          },
-          "500": {
-            "description": "Erro ao gerar relatório"
+          "200": { "description": "Relatório com presenças, faltas, justificadas, percentual_ldb, regular_ldb e faltas_restantes_ldb." },
+          "403": { "description": "Acesso negado (requer perfil gestor ou professor)." }
+        }
+      }
+    },
+    "/api/frequencia/radar": {
+      "get": {
+        "tags": ["Presença e Frequência"],
+        "summary": "Radar de Permanência Escolar (Score ABC, LDB 75%, Bolsa Família 75%, Pé-de-Meia 80% e Conselho Tutelar)",
+        "parameters": [
+          { "name": "turma_id", "in": "query", "required": false, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Lista ranqueada de risco de evasão escolar (filtrada pelas turmas do professor, quando aplicável)." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/frequencia/diagnostico/{aluno_id}": {
+      "get": {
+        "tags": ["Presença e Frequência"],
+        "summary": "Diagnóstico unificado de frequência, programas sociais e Score ABC de um estudante",
+        "parameters": [
+          { "name": "aluno_id", "in": "path", "required": true, "schema": { "type": "integer" } }
+        ],
+        "responses": {
+          "200": { "description": "Diagnóstico completo do aluno." },
+          "400": { "description": "ID de aluno inválido." },
+          "403": { "description": "Sem autorização para consultar este aluno." },
+          "404": { "description": "Aluno não encontrado." }
+        }
+      }
+    },
+    "/api/webhooks/whatsapp": {
+      "get": {
+        "tags": ["WhatsApp e Webhooks"],
+        "security": [],
+        "summary": "Desafio de verificação do webhook (Meta Cloud API)",
+        "parameters": [
+          { "name": "hub.mode", "in": "query", "schema": { "type": "string", "example": "subscribe" } },
+          { "name": "hub.verify_token", "in": "query", "schema": { "type": "string" } },
+          { "name": "hub.challenge", "in": "query", "schema": { "type": "string" } }
+        ],
+        "responses": {
+          "200": { "description": "Challenge devolvido em texto plano." },
+          "403": { "description": "Token de verificação inválido." }
+        }
+      },
+      "post": {
+        "tags": ["WhatsApp e Webhooks"],
+        "security": [],
+        "summary": "Recebe eventos de entrega/leitura e comandos de opt-out LGPD (SAIR/PARAR/STOP)",
+        "description": "Autenticado via assinatura HMAC (X-Hub-Signature-256 para Meta, X-Webhook-Hmac SHA-512 para WAHA) ou segredo configurado no provedor.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "type": "object" }
+            }
           }
+        },
+        "responses": {
+          "200": { "description": "Eventos processados com sucesso." },
+          "401": { "description": "Assinatura ou token de webhook inválido." },
+          "500": { "description": "Erro ao processar webhook." }
+        }
+      }
+    },
+    "/api/whatsapp/preferencias": {
+      "get": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Consulta telefone E.164, consentimento LGPD (opt-in/opt-out) e preferências de aviso do responsável",
+        "parameters": [
+          { "name": "usuario_id", "in": "query", "required": false, "schema": { "type": "integer" }, "description": "Usado apenas pelo perfil gestor para consultar um responsável específico." }
+        ],
+        "responses": {
+          "200": { "description": "Preferências de WhatsApp do responsável." },
+          "404": { "description": "Cadastro de responsável não encontrado." }
+        }
+      },
+      "put": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Atualiza celular, opt-in/opt-out LGPD e preferências (revogar opt-in cancela jobs pendentes)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "telefone": { "type": "string", "example": "11 99999-8888" },
+                  "whatsapp_optin": { "type": "boolean", "example": true },
+                  "aviso_falta_ativo": { "type": "boolean", "example": true },
+                  "usuario_id": { "type": "integer", "description": "Opcional para gestor atualizar um responsável específico." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Preferências atualizadas com sucesso." },
+          "400": { "description": "Número de celular inválido ou ausente ao ativar opt-in." },
+          "404": { "description": "Cadastro de responsável não encontrado." }
+        }
+      }
+    },
+    "/api/whatsapp/teste": {
+      "post": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Dispara mensagem de teste via provedor WhatsApp configurado (limitado a 3/10min por usuário)",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "telefone": { "type": "string", "description": "Opcional para gestor testar diretamente um número." },
+                  "usuario_id": { "type": "integer", "description": "Opcional para gestor testar com o responsável indicado." }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Mensagem de teste enviada." },
+          "400": { "description": "Telefone inválido ou opt-in não ativado." },
+          "429": { "description": "Limite de mensagens de teste atingido." },
+          "502": { "description": "Falha na comunicação com o provedor WhatsApp." }
+        }
+      }
+    },
+    "/api/whatsapp/jobs": {
+      "get": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Lista fila whatsapp_jobs e métricas de envio/entrega (apenas gestor)",
+        "parameters": [
+          { "name": "limit", "in": "query", "schema": { "type": "integer", "default": 50, "maximum": 200 } },
+          { "name": "status", "in": "query", "schema": { "type": "string", "enum": ["PENDING", "PROCESSING", "RETRY", "SENT", "FAILED", "CANCELLED"] } }
+        ],
+        "responses": {
+          "200": { "description": "Resumo quantitativo e listagem de jobs com telefones mascarados." },
+          "403": { "description": "Acesso negado." }
+        }
+      }
+    },
+    "/api/whatsapp/sessao": {
+      "get": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Consulta o status da sessão no gateway WAHA (apenas gestor)",
+        "responses": {
+          "200": { "description": "Estado atual da sessão." },
+          "502": { "description": "Gateway WAHA indisponível." }
+        }
+      }
+    },
+    "/api/whatsapp/sessao/iniciar": {
+      "post": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Inicia a sessão no gateway WAHA e registra o webhook de retorno (apenas gestor)",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "webhookBaseUrl": { "type": "string", "example": "http://localhost:3000" }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": { "description": "Sessão iniciada com sucesso." },
+          "400": { "description": "Provedor atual não utiliza pareamento via QR Code." },
+          "502": { "description": "Falha ao iniciar sessão no WAHA." }
+        }
+      }
+    },
+    "/api/whatsapp/sessao/qr": {
+      "get": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Obtém o QR Code de pareamento da sessão WAHA (apenas gestor)",
+        "responses": {
+          "200": { "description": "QR Code retornado em Base64." },
+          "400": { "description": "QR Code indisponível ou provedor não suportado." }
+        }
+      }
+    },
+    "/api/whatsapp/sessao/logout": {
+      "post": {
+        "tags": ["WhatsApp e Webhooks"],
+        "summary": "Desconecta a sessão ativa do gateway WAHA (apenas gestor)",
+        "responses": {
+          "200": { "description": "Sessão desconectada com sucesso." },
+          "400": { "description": "Provedor atual não suporta logout de sessão." },
+          "502": { "description": "Falha ao desconectar no WAHA." }
         }
       }
     }
