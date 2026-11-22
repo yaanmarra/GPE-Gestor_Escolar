@@ -161,7 +161,7 @@ function renderUltimasFaltas() {
           <div class="falta-mes">${mes}</div>
         </div>
         <div>
-          <div class="falta-aluno">${p.aluno}</div>
+          <div class="falta-aluno">${escapeHtml(p.aluno)}</div>
           <div class="falta-tipo">${isFalt ? '❌ Falta' : '📝 Justificada'}</div>
         </div>
         <div style="margin-left:auto;">
@@ -328,7 +328,7 @@ async function filtrarHistorico() {
     const dia = DIAS[d.getDay()];
     return `
       <tr>
-        <td><strong>${p.aluno}</strong></td>
+        <td><strong>${escapeHtml(p.aluno)}</strong></td>
         <td>${d.toLocaleDateString('pt-BR')}</td>
         <td style="color:var(--gray-400);font-size:0.8rem;">${dia}</td>
         <td><span class="badge badge-${p.status}">${p.status}</span></td>
@@ -338,9 +338,89 @@ async function filtrarHistorico() {
 }
 
 // ============================================================
-// NOTIFICAÇÕES
+// NOTIFICAÇÕES & PREFERÊNCIAS DE WHATSAPP
 // ============================================================
+async function carregarPreferenciasWhatsapp() {
+  const badge = document.getElementById('wa-status-badge');
+  const inpFone = document.getElementById('wa-telefone');
+  const chkOptin = document.getElementById('wa-optin');
+  if (!badge || !inpFone || !chkOptin) return;
+
+  try {
+    const r = await window.apiFetch('/whatsapp/preferencias');
+    const dados = await r.json();
+    if (!r.ok) throw new Error(dados.erro || 'Erro ao carregar');
+
+    const pref = dados.dados || dados;
+    inpFone.value = pref.telefone || pref.telefone_e164 || '';
+    chkOptin.checked = Boolean(pref.whatsapp_optin);
+
+    if (pref.whatsapp_optin) {
+      badge.textContent = 'Ativo ✓';
+      badge.style.background = 'var(--green-light)';
+      badge.style.color = 'var(--green)';
+    } else {
+      badge.textContent = 'Desativado';
+      badge.style.background = 'var(--gray-100)';
+      badge.style.color = 'var(--gray-600)';
+    }
+  } catch {
+    badge.textContent = 'Indisponível';
+  }
+}
+
+document.getElementById('formWhatsappPais')?.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const fb = document.getElementById('wa-msg-feedback');
+  const telefone = document.getElementById('wa-telefone').value.trim();
+  const whatsapp_optin = document.getElementById('wa-optin').checked;
+
+  fb.textContent = 'Salvando...';
+  fb.style.color = 'var(--gray-600)';
+
+  try {
+    const r = await window.apiFetch('/whatsapp/preferencias', {
+      method: 'PUT',
+      body: JSON.stringify({ telefone, whatsapp_optin }),
+    });
+    const d = await r.json();
+    if (r.ok) {
+      fb.textContent = `✅ ${(d.dados || d).mensagem || 'Preferências salvas!'}`;
+      fb.style.color = 'var(--green)';
+      carregarPreferenciasWhatsapp();
+    } else {
+      fb.textContent = `❌ ${d.erro || 'Erro ao salvar.'}`;
+      fb.style.color = 'var(--red)';
+    }
+  } catch {
+    fb.textContent = '❌ Falha de conexão.';
+    fb.style.color = 'var(--red)';
+  }
+});
+
+document.getElementById('btn-wa-teste')?.addEventListener('click', async () => {
+  const fb = document.getElementById('wa-msg-feedback');
+  fb.textContent = 'Enviando teste...';
+  fb.style.color = 'var(--gray-600)';
+
+  try {
+    const r = await window.apiFetch('/whatsapp/teste', { method: 'POST', body: JSON.stringify({}) });
+    const d = await r.json();
+    if (r.ok) {
+      fb.textContent = `✅ ${(d.dados || d).mensagem || 'Mensagem de teste enviada!'}`;
+      fb.style.color = 'var(--green)';
+    } else {
+      fb.textContent = `❌ ${d.erro || 'Não foi possível enviar o teste.'}`;
+      fb.style.color = 'var(--red)';
+    }
+  } catch {
+    fb.textContent = '❌ Falha de conexão.';
+    fb.style.color = 'var(--red)';
+  }
+});
+
 async function carregarNotificacoes() {
+  carregarPreferenciasWhatsapp();
   const cont = document.getElementById('notif-lista');
   cont.innerHTML = '<div class="empty-state"><span class="empty-icon">⏳</span><p>Carregando...</p></div>';
 
@@ -362,10 +442,10 @@ async function carregarNotificacoes() {
       <div class="notif-item ${p.status}">
         <span class="notif-icon">${isFalt ? '❌' : '📝'}</span>
         <div class="notif-texto">
-          <strong>${isFalt ? 'Falta registrada' : 'Falta justificada'}</strong> — ${p.aluno}<br/>
+          <strong>${isFalt ? 'Falta registrada' : 'Falta justificada'}</strong> — ${escapeHtml(p.aluno)}<br/>
           ${isFalt
-            ? `Foi registrada uma falta para ${p.aluno} no dia ${d}.`
-            : `A falta de ${p.aluno} no dia ${d} foi justificada.`}
+            ? `Foi registrada uma falta para ${escapeHtml(p.aluno)} no dia ${d}.`
+            : `A falta de ${escapeHtml(p.aluno)} no dia ${d} foi justificada.`}
           <div class="notif-data">${d}</div>
         </div>
       </div>

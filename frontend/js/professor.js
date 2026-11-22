@@ -5,7 +5,6 @@
 // Usa API_BASE_URL de config.js (carregado antes deste script)
 // Controle de acesso gerenciado no auth.js
 
-const professorId = localStorage.getItem('usuario_id') || 1;
 const nomeProf    = localStorage.getItem('nome') || 'Professor';
 
 // ─── INIT UI ──────────────────────────────────────────────
@@ -83,8 +82,8 @@ async function carregarDashboard() {
       lista.innerHTML = ativas.map(t => `
         <div class="turma-item">
           <div class="turma-info">
-            <div class="turma-nome">${t.nome}</div>
-            <div class="turma-meta">${t.turno || '—'} · ${t.total_alunos} alunos · ${t.ano}</div>
+            <div class="turma-nome">${escapeHtml(t.nome)}</div>
+            <div class="turma-meta">${escapeHtml(t.turno || '—')} · ${t.total_alunos} alunos · ${t.ano}</div>
           </div>
           <button class="turma-btn" onclick="irParaChamada(${t.id})">📋 Chamada</button>
         </div>
@@ -179,7 +178,7 @@ async function carregarSelectTurmas() {
     [selTurma, document.getElementById('hist-turma-sel')].forEach(sel => {
       const vazio = sel.options[0].outerHTML;
       sel.innerHTML = vazio + ativas.map(t =>
-        `<option value="${t.id}">${t.nome} (${t.turno || '—'}) · ${t.total_alunos} alunos</option>`
+        `<option value="${t.id}">${escapeHtml(t.nome)} (${escapeHtml(t.turno || '—')}) · ${t.total_alunos} alunos</option>`
       ).join('');
     });
   } catch (e) { console.error(e); }
@@ -205,7 +204,7 @@ async function iniciarChamada() {
   try {
     const [rAlunos, rSalvos] = await Promise.all([
       window.apiFetch(`/turmas/${turmaId}/alunos`),
-      window.apiFetch(`/presencas-turma?turma_id=${turmaId}&data=${data}`)
+      window.apiFetch(`/presencas-turma?turma_id=${turmaId}&data=${data}&chamada=diaria`)
     ]);
     alunosDaTurma = await rAlunos.json();
     const salvos  = await rSalvos.json().catch(() => []);
@@ -287,8 +286,8 @@ function renderLista() {
 
     item.innerHTML = `
       <span class="aluno-num">${idx + 1}</span>
-      <div class="aluno-avatar">${aluno.nome.charAt(0).toUpperCase()}</div>
-      <span class="aluno-nome">${aluno.nome}</span>
+      <div class="aluno-avatar">${escapeHtml(aluno.nome.charAt(0).toUpperCase())}</div>
+      <span class="aluno-nome">${escapeHtml(aluno.nome)}</span>
       ${isAtual ? '<span class="atual-indicator">▶</span>' : ''}
       <div class="item-actions">
         <button class="act-btn act-p" data-act="presente">✓ Presente</button>
@@ -444,7 +443,6 @@ async function salvarFrequencia() {
   }
 
   const payload = {
-    professor_id: professorId,
     data,
     presencas: alunosDaTurma.map(a => ({ aluno_id: a.id, status: statusMap[a.id] }))
   };
@@ -551,7 +549,7 @@ function renderHistorico() {
   }
   tbody.innerHTML = histFiltrado.map(p => `
     <tr>
-      <td><strong>${p.aluno}</strong></td>
+      <td><strong>${escapeHtml(p.aluno)}</strong></td>
       <td>${new Date(p.data).toLocaleDateString('pt-BR')}</td>
       <td>—</td>
       <td><span class="badge badge-${p.status}">${p.status}</span></td>

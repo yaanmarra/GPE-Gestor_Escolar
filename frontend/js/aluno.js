@@ -216,7 +216,7 @@ function renderUltimasAulas() {
     return `
       <div class="aula-item">
         <span class="aula-data">${d.toLocaleDateString('pt-BR')} <small style="color:var(--gray-400)">${DIAS[d.getDay()]}</small></span>
-        <span class="aula-prof">${p.professor || '—'}</span>
+        <span class="aula-prof">${escapeHtml(p.professor || '—')}</span>
         <span class="badge badge-${p.status}">${p.status}</span>
       </div>
     `;
@@ -255,7 +255,7 @@ function renderHistorico() {
       <tr>
         <td><strong>${d.toLocaleDateString('pt-BR')}</strong></td>
         <td style="color:var(--gray-400);font-size:0.8rem;">${DIAS[d.getDay()]}</td>
-        <td>${p.professor || '—'}</td>
+        <td>${escapeHtml(p.professor || '—')}</td>
         <td><span class="badge badge-${p.status}">${p.status}</span></td>
       </tr>
     `;

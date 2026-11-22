@@ -5,6 +5,11 @@
 // Usa API_BASE_URL de config.js (carregado antes deste script)
 // Controle de acesso agora é gerenciado pelo auth.js
 
+// ─── SEGURANÇA: escape de HTML ───────────────────────────
+// Todo dado vindo da API e inserido via innerHTML/template string passa por aqui (evita XSS).
+// Para argumentos de handlers inline (onclick="fn(...)"): string JS válida e segura no atributo.
+const jsArg = (valor) => escapeHtml(JSON.stringify(String(valor ?? '')));
+
 // ─── TOPBAR DATE ─────────────────────────────────────────
 document.getElementById('topbarDate').textContent =
   new Date().toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' });
@@ -21,6 +26,7 @@ const sectionLabels = {
   turmas:     'Turmas',
   usuarios:   'Usuários',
   cadastro:   'Cadastrar Usuário',
+  whatsapp:   'Monitoramento WhatsApp',
 };
 
 navItems.forEach(item => {
@@ -37,6 +43,7 @@ navItems.forEach(item => {
     if (target === 'frequencia') carregarRelatorio();
     if (target === 'turmas')     carregarTurmas();
     if (target === 'usuarios')   carregarUsuarios();
+    if (target === 'whatsapp')   carregarWhatsappJobs();
   });
 });
 
@@ -89,9 +96,9 @@ async function carregarSelectsTurmaEPai() {
     avisoEl.style.display = 'none';
     formEl.style.display  = 'block';
     selTurma.innerHTML = '<option value="">Selecione a turma...</option>' +
-      ativas.map(t => `<option value="${t.id}">${t.nome} — ${t.ano} (${t.turno})</option>`).join('');
+      ativas.map(t => `<option value="${t.id}">${escapeHtml(t.nome)} — ${t.ano} (${escapeHtml(t.turno)})</option>`).join('');
     selPai.innerHTML = '<option value="">Selecione o responsável...</option>' +
-      pais.map(p => `<option value="${p.id}">${p.nome}${p.telefone ? ' — ' + p.telefone : ''}</option>`).join('');
+      pais.map(p => `<option value="${p.id}">${escapeHtml(p.nome)}${p.telefone ? ' — ' + escapeHtml(p.telefone) : ''}</option>`).join('');
   } catch {
     selTurma.innerHTML = '<option value="">Erro ao carregar</option>';
     selPai.innerHTML   = '<option value="">Erro ao carregar</option>';
@@ -273,16 +280,16 @@ function renderizarTurmas(turmas) {
   grid.innerHTML = turmas.map(t => `
     <div class="turma-card${t.ativa ? '' : ' inativa'}">
       <div class="turma-card-header">
-        <div><div class="turma-nome">${t.nome}</div><div class="turma-ano">${t.ano}</div></div>
+        <div><div class="turma-nome">${escapeHtml(t.nome)}</div><div class="turma-ano">${t.ano}</div></div>
         ${t.ativa ? `<span class="turma-badge-turno">${turnos[t.turno]||t.turno}</span>` : '<span class="turma-badge-inativa">Inativa</span>'}
       </div>
       <div class="turma-stats">
         <div class="turma-stat"><span class="turma-stat-val">${t.total_alunos||0}</span><span class="turma-stat-label">Alunos</span></div>
       </div>
       <div class="turma-actions">
-        <button class="btn-turma btn-turma-alunos" onclick="abrirModalAlunos(${t.id},'${t.nome}')">👥 Alunos</button>
+        <button class="btn-turma btn-turma-alunos" onclick="abrirModalAlunos(${t.id},${jsArg(t.nome)})">👥 Alunos</button>
         <button class="btn-turma btn-turma-edit"   onclick="abrirModalEditarTurma(${t.id})">✏️ Editar</button>
-        <button class="btn-turma btn-turma-del"    onclick="excluirTurma(${t.id},'${t.nome}')">🗑️</button>
+        <button class="btn-turma btn-turma-del"    onclick="excluirTurma(${t.id},${jsArg(t.nome)})">🗑️</button>
       </div>
     </div>
   `).join('');
@@ -357,12 +364,12 @@ async function abrirModalAlunos(turmaId, turmaNome) {
     const alunos = Array.isArray(alunosRaw) ? alunosRaw : (Array.isArray(alunosRaw?.dados) ? alunosRaw.dados : []);
     const todos  = Array.isArray(todosRaw) ? todosRaw : (Array.isArray(todosRaw?.dados) ? todosRaw.dados : []);
     lista.innerHTML = alunos.length
-      ? alunos.map(a => `<div class="modal-aluno-item"><div><div class="modal-aluno-nome">${a.nome}</div><div class="modal-aluno-email">${a.email}</div></div></div>`).join('')
+      ? alunos.map(a => `<div class="modal-aluno-item"><div><div class="modal-aluno-nome">${escapeHtml(a.nome)}</div><div class="modal-aluno-email">${escapeHtml(a.email)}</div></div></div>`).join('')
       : '<div class="modal-aluno-item" style="color:var(--gray-400)">Nenhum aluno vinculado ainda.</div>';
     const vinculados = new Set(alunos.map(a => a.id));
     const select = document.getElementById('selectVincularAluno');
     select.innerHTML = '<option value="">Selecione um aluno para vincular...</option>' +
-      todos.filter(a => !vinculados.has(a.id)).map(a => `<option value="${a.id}">${a.nome}</option>`).join('');
+      todos.filter(a => !vinculados.has(a.id)).map(a => `<option value="${a.id}">${escapeHtml(a.nome)}</option>`).join('');
   } catch { lista.innerHTML = '<div class="modal-aluno-item" style="color:var(--red)">Erro ao carregar alunos.</div>'; }
 }
 
@@ -395,21 +402,27 @@ async function carregarAlunosList() {
     const d = await r.json();
     const lista = Array.isArray(d) ? d : (Array.isArray(d?.dados) ? d.dados : []);
     tbody.innerHTML = lista.length
-      ? lista.map((a,i)=>`<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${a.nome}</strong></td><td>${a.email}</td><td><span class="badge badge-ok">${a.turma||'—'}</span></td></tr>`).join('')
+      ? lista.map((a,i)=>`<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${escapeHtml(a.nome)}</strong></td><td>${escapeHtml(a.email)}</td><td><span class="badge badge-ok">${escapeHtml(a.turma||'—')}</span></td></tr>`).join('')
       : '<tr><td colspan="4" class="loading-cell">Nenhum aluno cadastrado.</td></tr>';
   } catch { tbody.innerHTML='<tr><td colspan="4" class="loading-cell">Erro ao carregar.</td></tr>'; }
 }
 async function carregarPaisList() {
   const tbody = document.getElementById('tabelaPais');
-  tbody.innerHTML = '<tr><td colspan="4" class="loading-cell">Carregando...</td></tr>';
+  tbody.innerHTML = '<tr><td colspan="5" class="loading-cell">Carregando...</td></tr>';
   try {
     const r = await window.apiFetch(`/pais`);
     const d = await r.json();
     const lista = Array.isArray(d) ? d : (Array.isArray(d?.dados) ? d.dados : []);
     tbody.innerHTML = lista.length
-      ? lista.map((p,i)=>`<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${p.nome}</strong></td><td>${p.email}</td><td>${p.telefone||'—'}</td></tr>`).join('')
-      : '<tr><td colspan="4" class="loading-cell">Nenhum pai cadastrado.</td></tr>';
-  } catch { tbody.innerHTML='<tr><td colspan="4" class="loading-cell">Erro ao carregar.</td></tr>'; }
+      ? lista.map((p,i)=>{
+          const optin = p.whatsapp_optin && !p.whatsapp_optout_em;
+          const badgeWa = optin
+            ? '<span class="badge badge-ok">Opt-in Ativo</span>'
+            : '<span class="badge badge-risco">Sem Opt-in</span>';
+          return `<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${escapeHtml(p.nome)}</strong></td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.telefone_e164||p.telefone||'—')}</td><td>${badgeWa}</td></tr>`;
+        }).join('')
+      : '<tr><td colspan="5" class="loading-cell">Nenhum pai cadastrado.</td></tr>';
+  } catch { tbody.innerHTML='<tr><td colspan="5" class="loading-cell">Erro ao carregar.</td></tr>'; }
 }
 async function carregarProfessoresList() {
   const tbody = document.getElementById('tabelaProfessores');
@@ -419,7 +432,7 @@ async function carregarProfessoresList() {
     const d = await r.json();
     const lista = Array.isArray(d) ? d : (Array.isArray(d?.dados) ? d.dados : []);
     tbody.innerHTML = lista.length
-      ? lista.map((p,i)=>`<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${p.nome}</strong></td><td>${p.email}</td><td>${p.disciplina||'—'}</td></tr>`).join('')
+      ? lista.map((p,i)=>`<tr><td style="color:var(--gray-400);font-size:.8rem">${i+1}</td><td><strong>${escapeHtml(p.nome)}</strong></td><td>${escapeHtml(p.email)}</td><td>${escapeHtml(p.disciplina||'—')}</td></tr>`).join('')
       : '<tr><td colspan="4" class="loading-cell">Nenhum professor cadastrado.</td></tr>';
   } catch { tbody.innerHTML='<tr><td colspan="4" class="loading-cell">Erro ao carregar.</td></tr>'; }
 }
@@ -429,14 +442,15 @@ document.getElementById('formCadastro').addEventListener('submit', async (e) => 
   e.preventDefault();
   const msg = document.getElementById('mensagemCadastro');
   const payload = {
-    nome:       document.getElementById('nome').value.trim(),
-    email:      document.getElementById('email').value.trim(),
-    senha:      document.getElementById('senha').value.trim(),
-    tipo:       document.getElementById('tipo').value,
-    turma_id:   document.getElementById('turma_id')?.value   || '',
-    pai_id:     document.getElementById('pai_id')?.value     || '',
-    telefone:   document.getElementById('telefone')?.value.trim() || '',
-    disciplina: document.getElementById('disciplina')?.value.trim() || '',
+    nome:           document.getElementById('nome').value.trim(),
+    email:          document.getElementById('email').value.trim(),
+    senha:          document.getElementById('senha').value.trim(),
+    tipo:           document.getElementById('tipo').value,
+    turma_id:       document.getElementById('turma_id')?.value   || '',
+    pai_id:         document.getElementById('pai_id')?.value     || '',
+    telefone:       document.getElementById('telefone')?.value.trim() || '',
+    whatsapp_optin: Boolean(document.getElementById('whatsapp_optin_cad')?.checked),
+    disciplina:     document.getElementById('disciplina')?.value.trim() || '',
   };
   if (!payload.nome || !payload.email || !payload.senha || !payload.tipo) { showMsg(msg,'⚠️ Preencha todos os campos obrigatórios.','error'); return; }
   if (payload.tipo==='aluno' && !payload.turma_id) { showMsg(msg,'⚠️ Selecione a turma do aluno.','error'); return; }
@@ -451,6 +465,194 @@ document.getElementById('formCadastro').addEventListener('submit', async (e) => 
     } else { showMsg(msg,`❌ ${dados.erro||'Erro ao cadastrar.'}`, 'error'); }
   } catch { showMsg(msg,'❌ Não foi possível conectar ao servidor.','error'); }
 });
+
+// ─── WHATSAPP MONITORAMENTO & CONEXÃO WAHA ──────────────────
+async function carregarStatusSessaoWaha() {
+  const badge = document.getElementById('waSessaoBadge');
+  const detalhe = document.getElementById('waSessaoDetalhe');
+  const btnConectar = document.getElementById('btnWaConectar');
+  const btnQr = document.getElementById('btnWaAtualizarQr');
+  const btnDesc = document.getElementById('btnWaDesconectar');
+  const qrBox = document.getElementById('waQrContainer');
+  if (!badge) return;
+
+  try {
+    const r = await window.apiFetch('/whatsapp/sessao');
+    const raw = await r.json();
+    const s = raw.dados || raw;
+
+    if (!s.suportaSessao) {
+      badge.className = 'badge badge-ok';
+      badge.textContent = `Provider: ${s.provider || 'fake'}`;
+      detalhe.textContent = s.provider === 'fake'
+        ? 'Modo Simulador (fake) ativo. Para conectar um celular real via QR Code, defina WHATSAPP_PROVIDER=waha no .env.'
+        : `Provedor "${s.provider}" gerenciado externamente.`;
+      btnConectar.style.display = 'none';
+      btnQr.style.display = 'none';
+      btnDesc.style.display = 'none';
+      qrBox.style.display = 'none';
+      return;
+    }
+
+    if (!s.online) {
+      badge.className = 'badge badge-critico';
+      badge.textContent = 'WAHA Offline';
+      detalhe.textContent = `Servidor waha-core não encontrado. Inicie o WAHA na porta 3001 (${s.erro || 'sem resposta'}).`;
+      btnConectar.style.display = 'inline-flex';
+      btnQr.style.display = 'none';
+      btnDesc.style.display = 'none';
+      qrBox.style.display = 'none';
+      return;
+    }
+
+    if (s.status === 'WORKING') {
+      const conta = s.me?.id ? `${s.me.pushName || 'Aparelho'} (${s.me.id.split('@')[0]})` : 'Sessão ativa';
+      badge.className = 'badge badge-ok';
+      badge.textContent = '🟢 Conectado (WORKING)';
+      detalhe.textContent = `WhatsApp pareado e pronto para disparos: ${conta}`;
+      btnConectar.style.display = 'none';
+      btnQr.style.display = 'none';
+      btnDesc.style.display = 'inline-flex';
+      qrBox.style.display = 'none';
+    } else if (s.status === 'SCAN_QR_CODE') {
+      badge.className = 'badge badge-risco';
+      badge.textContent = '🟡 Aguardando leitura do QR Code';
+      detalhe.textContent = 'Escaneie o QR Code abaixo com o WhatsApp do celular da escola.';
+      btnConectar.style.display = 'none';
+      btnQr.style.display = 'inline-flex';
+      btnDesc.style.display = 'inline-flex';
+      await carregarQrCodeWaha();
+    } else {
+      badge.className = 'badge badge-risco';
+      badge.textContent = `Status: ${s.status}`;
+      detalhe.textContent = 'Clique em "Conectar / Gerar QR Code" para iniciar a sessão no WAHA.';
+      btnConectar.style.display = 'inline-flex';
+      btnQr.style.display = 'none';
+      btnDesc.style.display = 'none';
+      qrBox.style.display = 'none';
+    }
+  } catch {
+    badge.className = 'badge badge-critico';
+    badge.textContent = 'Erro';
+  }
+}
+
+async function carregarQrCodeWaha() {
+  const qrBox = document.getElementById('waQrContainer');
+  const qrImg = document.getElementById('waQrImage');
+  try {
+    const r = await window.apiFetch('/whatsapp/sessao/qr');
+    const raw = await r.json();
+    const d = raw.dados || raw;
+    if (r.ok && d.dataUrl) {
+      qrImg.src = d.dataUrl;
+      qrBox.style.display = 'flex';
+    }
+  } catch { /* ignore */ }
+}
+
+document.getElementById('btnWaConectar')?.addEventListener('click', async () => {
+  const detalhe = document.getElementById('waSessaoDetalhe');
+  detalhe.textContent = 'Iniciando sessão no WAHA e gerando QR Code...';
+  try {
+    const r = await window.apiFetch('/whatsapp/sessao/iniciar', { method: 'POST', body: JSON.stringify({}) });
+    const d = await r.json();
+    if (!r.ok) {
+      detalhe.textContent = `❌ ${d.erro || 'Falha ao iniciar sessão.'}`;
+      return;
+    }
+    setTimeout(carregarStatusSessaoWaha, 1500);
+  } catch {
+    detalhe.textContent = '❌ Erro de comunicação com a API.';
+  }
+});
+
+document.getElementById('btnWaAtualizarQr')?.addEventListener('click', carregarStatusSessaoWaha);
+
+document.getElementById('btnWaDesconectar')?.addEventListener('click', async () => {
+  if (!confirm('Deseja desconectar o aparelho de WhatsApp atual?')) return;
+  await window.apiFetch('/whatsapp/sessao/logout', { method: 'POST', body: JSON.stringify({}) });
+  carregarStatusSessaoWaha();
+});
+
+document.getElementById('btnWaTesteGestor')?.addEventListener('click', async () => {
+  const input = document.getElementById('waFoneTesteGestor');
+  const msgEl = document.getElementById('waMsgTesteGestor');
+  const fone = input?.value?.trim() || '';
+  if (!fone) {
+    msgEl.style.color = '#dc2626';
+    msgEl.textContent = '⚠️ Digite o DDD + Número para testar.';
+    return;
+  }
+  msgEl.style.color = 'var(--gray-600)';
+  msgEl.textContent = 'Enviando mensagem pelo WAHA...';
+  try {
+    const r = await window.apiFetch('/whatsapp/teste', {
+      method: 'POST',
+      body: JSON.stringify({ telefone: fone }),
+    });
+    const raw = await r.json();
+    const d = raw.dados || raw;
+    if (r.ok) {
+      msgEl.style.color = '#16a34a';
+      msgEl.textContent = `✅ ${d.mensagem || 'Mensagem enviada com sucesso!'}`;
+    } else {
+      msgEl.style.color = '#dc2626';
+      msgEl.textContent = `❌ ${raw.erro || d.erro || 'Erro ao enviar teste.'}`;
+    }
+  } catch {
+    msgEl.style.color = '#dc2626';
+    msgEl.textContent = '❌ Erro de comunicação com o servidor GPE.';
+  }
+});
+
+async function carregarWhatsappJobs() {
+  carregarStatusSessaoWaha();
+  const tbody = document.getElementById('tabelaWhatsappJobs');
+  const meta  = document.getElementById('waMetaInfo');
+  if (!tbody) return;
+  tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">Carregando...</td></tr>';
+
+  try {
+    const r = await window.apiFetch('/whatsapp/jobs?limit=50');
+    const raw = await r.json();
+    const dados = raw.dados || raw;
+    const res = dados.resumo || {};
+    const ent = dados.entregas || {};
+    const cfg = dados.config || {};
+
+    document.getElementById('waStatPendentes').textContent = (res.PENDING || 0) + (res.RETRY || 0) + (res.PROCESSING || 0);
+    document.getElementById('waStatEnviados').textContent  = res.SENT || 0;
+    document.getElementById('waStatLidos').textContent     = (ent.delivered || 0) + (ent.read || 0);
+    document.getElementById('waStatFalhas').textContent    = res.FAILED || 0;
+
+    meta.textContent = `Integração: ${cfg.enabled ? 'ATIVA' : 'DESATIVADA'} • Provider: ${cfg.provider || '—'} • Janela de correção: ${cfg.janelaCorrecaoMin ?? 15} min`;
+
+    const jobs = dados.jobs || [];
+    if (!jobs.length) {
+      tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">Nenhum disparo registrado na fila.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = jobs.map(j => {
+      const dataRef = j.data_referencia ? new Date(j.data_referencia).toLocaleDateString('pt-BR') : '—';
+      const badgeFila = j.status === 'SENT' ? 'badge-ok' : (j.status === 'FAILED' ? 'badge-critico' : 'badge-risco');
+      return `<tr>
+        <td style="color:var(--gray-400);font-size:.8rem">#${j.id}</td>
+        <td><strong>${escapeHtml(j.nome_aluno || 'Aluno #' + j.aluno_id)}</strong></td>
+        <td>${escapeHtml(j.nome_responsavel || 'Usuário #' + j.usuario_id)}</td>
+        <td><code>${escapeHtml(j.destinatario_mascarado || j.destinatario)}</code></td>
+        <td>${dataRef}</td>
+        <td><span class="badge ${badgeFila}">${escapeHtml(j.status)}</span></td>
+        <td${j.ultimo_erro ? ` title="${escapeHtml(j.ultimo_erro)}"` : ''}>${escapeHtml(j.status_entrega || (j.ultimo_erro ? '⚠️ ' + j.ultimo_erro.slice(0, 40) : '—'))}</td>
+      </tr>`;
+    }).join('');
+  } catch {
+    tbody.innerHTML = '<tr><td colspan="7" class="loading-cell">Erro ao consultar fila de WhatsApp.</td></tr>';
+  }
+}
+
+document.getElementById('btnAtualizarWaJobs')?.addEventListener('click', carregarWhatsappJobs);
 
 // ============================================================
 // CHAMADA — GESTOR
@@ -468,7 +670,7 @@ async function carregarTurmasSelect() {
     const r = await window.apiFetch(`/turmas`);
     const t = await r.json();
     sel.innerHTML = '<option value="">— Selecione —</option>' +
-      t.filter(x=>x.ativa).map(x=>`<option value="${x.id}">${x.nome} (${x.turno||'—'})</option>`).join('');
+      t.filter(x=>x.ativa).map(x=>`<option value="${x.id}">${escapeHtml(x.nome)} (${escapeHtml(x.turno||'—')})</option>`).join('');
   } catch {}
 }
 
@@ -489,8 +691,14 @@ async function gIniciarChamada() {
   try {
     const [rA, rS] = await Promise.all([
       window.apiFetch(`/turmas/${turmaId}/alunos`),
-      window.apiFetch(`/presencas-turma?turma_id=${turmaId}&data=${data}`)
+      window.apiFetch(`/presencas-turma?turma_id=${turmaId}&data=${data}&chamada=diaria`)
     ]);
+    if (rS.status === 409) {
+      const aviso = document.getElementById('g-chamada-empty');
+      aviso.textContent = (await rS.json()).erro;
+      aviso.classList.remove('hidden');
+      return;
+    }
     gAlunos = await rA.json();
     const salvos = await rS.json().catch(()=>[]);
     if (!gAlunos.length) { document.getElementById('g-chamada-empty').innerHTML='<span class="chamada-empty-icon">😕</span><p>Nenhum aluno nesta turma.</p>'; btn.disabled=false; btn.textContent='▶ Iniciar'; return; }
@@ -531,8 +739,8 @@ function gRenderLista() {
     const badgeLabel = {presente:'✓ Presente',falta:'✗ Falta',justificado:'⚠ Just.',pendente:'—','← aqui':'← aqui','atual':'← aqui'}[badgeTxt]||badgeTxt;
     item.innerHTML=`
       <span class="aluno-num">${idx+1}</span>
-      <div class="aluno-avatar">${aluno.nome.charAt(0).toUpperCase()}</div>
-      <span class="aluno-nome">${aluno.nome}</span>
+      <div class="aluno-avatar">${escapeHtml(aluno.nome.charAt(0).toUpperCase())}</div>
+      <span class="aluno-nome">${escapeHtml(aluno.nome)}</span>
       ${isAtual?'<span class="atual-indicator">▶</span>':''}
       <div class="item-actions">
         <button class="act-btn act-p" data-act="presente">✓ Presente</button>

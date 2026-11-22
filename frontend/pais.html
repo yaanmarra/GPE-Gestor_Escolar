@@ -217,6 +217,36 @@
         <h1 class="section-title"><span class="title-accent">Notificações</span></h1>
         <p class="section-sub">Avisos e comunicados sobre a frequência</p>
       </div>
+
+      <!-- Configuração de Avisos via WhatsApp (LGPD) -->
+      <div class="card mb-4">
+        <div class="card-header">
+          <span class="card-title">📱 Avisos Automáticos via WhatsApp</span>
+          <span class="card-badge" id="wa-status-badge">Carregando...</span>
+        </div>
+        <div class="card-body">
+          <form id="formWhatsappPais" style="display:flex;flex-direction:column;gap:14px;">
+            <div style="display:flex;gap:14px;flex-wrap:wrap;align-items:flex-end;">
+              <div class="form-group" style="flex:1;min-width:220px;">
+                <label for="wa-telefone">Celular (WhatsApp com DDD)</label>
+                <input type="tel" id="wa-telefone" placeholder="Ex: (11) 99999-8888" />
+              </div>
+              <div class="form-group" style="flex:2;min-width:260px;">
+                <label style="display:flex;align-items:flex-start;gap:8px;cursor:pointer;font-weight:500;font-size:0.86rem;">
+                  <input type="checkbox" id="wa-optin" style="margin-top:3px;" />
+                  <span>Autorizo o recebimento de avisos automáticos de frequência escolar via WhatsApp (LGPD). Você pode cancelar a qualquer momento respondendo <strong>SAIR</strong>.</span>
+                </label>
+              </div>
+            </div>
+            <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+              <button type="submit" class="btn-primary" id="btn-wa-salvar">💾 Salvar Preferências</button>
+              <button type="button" class="btn-secondary" id="btn-wa-teste" style="padding:9px 14px;border-radius:8px;border:1px solid var(--gray-200);background:#fff;cursor:pointer;font-weight:600;">📨 Enviar Mensagem de Teste</button>
+              <span id="wa-msg-feedback" style="font-size:0.85rem;font-weight:600;"></span>
+            </div>
+          </form>
+        </div>
+      </div>
+
       <div id="notif-lista">
         <div class="empty-state"><span class="empty-icon">⏳</span><p>Carregando notificações...</p></div>
       </div>
